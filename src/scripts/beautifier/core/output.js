@@ -418,4 +418,4 @@ Output.prototype.ensure_empty_line_above = function(starts_with, ends_with) {
   }
 };
 
-module.exports.Output = Output;
+export { Output };

@@ -2,10 +2,10 @@
   <magic-dialog v-show="true" :moveable="false" :shade="true" :showClose="false" title="登录">
     <template #content>
       <label>用户名：</label>
-      <magic-input :onEnter="doLogin" :value.sync="username"/>
+      <magic-input :onEnter="doLogin" v-model:value="username"/>
       <div style="height: 2px"/>
       <label>密码：</label>
-      <magic-input :onEnter="doLogin" :value.sync="password" type="password"/>
+      <magic-input :onEnter="doLogin" v-model:value="password" type="password"/>
     </template>
     <template #buttons>
       <button class="ma-button active" @click="doLogin">登录</button>
@@ -14,8 +14,8 @@
 </template>
 
 <script>
-import MagicInput from '@/components/common/magic-input'
-import MagicDialog from '@/components/common/modal/magic-dialog'
+import MagicInput from '@/components/common/magic-input.vue'
+import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import request from '@/api/request.js'
 import contants from '@/scripts/contants.js'
 import store from '@/scripts/store.js'

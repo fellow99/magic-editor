@@ -25,15 +25,17 @@
 </template>
 
 <script>
-  import MagicJsonTreeFormat from './magic-json-tree-format'
-  import {deepClone} from "../../scripts/utils";
+import MagicJsonTreeFormat from './magic-json-tree-format.vue'
+import imgArray from '../../assets/images/array.gif'
+import imgObject from '../../assets/images/object.gif'
+import { deepClone } from '@/scripts/utils.js'
 
   export default {
     name: 'MagicJsonTree',
     data() {
       return {
-        imgArray: require('../../assets/images/array.gif'),
-        imgObject: require('../../assets/images/object.gif'),
+        imgArray,
+        imgObject,
       }
     },
     props: {

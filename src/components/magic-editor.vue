@@ -1,9 +1,9 @@
 <template>
   <div ref="container" :style="themeStyle" class="ma-container" tabindex="0">
-    <magic-loading v-if="loading" :title.sync="config.title" :version.sync="config.version" />
+    <magic-loading v-if="loading" v-model:title="config.title" v-model:version="config.version" />
     <magic-login v-if="showLogin" :onLogin="onLogin" />
     <!-- 顶部Header -->
-    <magic-header :config="config" :themeStyle.sync="themeStyle" class="not-select" />
+    <magic-header :config="config" v-model:themeStyle="themeStyle" class="not-select" />
     <ul class="ma-toolbar-container not-select">
       <li v-for="(item, index) in toolbars" :key="'toolbar_' + index" :class="{ selected: toolbarIndex === index }" @click="toolbarIndex = toolbarIndex === index ? -1 : index">{{ item }}<i class="ma-icon ma-icon-list"></i></li>
     </ul>
@@ -50,8 +50,8 @@ import {defineTheme} from '@/scripts/editor/theme.js'
 import defaultTheme from '@/scripts/editor/default-theme.js'
 import darkTheme from '@/scripts/editor/dark-theme.js'
 import JavaClass from '@/scripts/editor/java-class.js'
-import JsonWorker from '@/scripts/workers/json.worker.js'
-import EditorWorker from '@/scripts/workers/editor.worker.js'
+import JsonWorker from '@/scripts/workers/json.worker.js?worker'
+import EditorWorker from '@/scripts/workers/editor.worker.js?worker'
 
 self.MonacoEnvironment = {
   getWorker: function(moduleId, label) {

@@ -22,7 +22,7 @@ import bus from '../../scripts/bus.js'
 import MagicTree from '../common/magic-tree.vue'
 import request from '@/api/request.js'
 import contants from '@/scripts/contants.js'
-import MagicCheckbox from "@/components/common/magic-checkbox";
+import MagicCheckbox from "@/components/common/magic-checkbox.vue";
 
 export default {
   name: 'MagicGroupChoose',

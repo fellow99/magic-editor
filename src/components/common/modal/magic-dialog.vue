@@ -1,5 +1,5 @@
 <template>
-  <div v-show="value" :class="[{ moveable,shade },'ma-dialog-wrapper ' + className]">
+  <div v-show="visible" :class="[{ moveable,shade },'ma-dialog-wrapper ' + className]">
     <div :style="{ position, top, left,width,height,'max-width': maxWidth }" class="ma-dialog">
       <div ref="title" class="ma-dialog-header not-select">
         {{ title }}
@@ -11,7 +11,7 @@
         </template>
         <slot v-else name="content"></slot>
       </div>
-      <div v-if="$scopedSlots && $scopedSlots.buttons" :class="{ 'button-align-right': align == 'right' }" class="ma-dialog-buttons not-select">
+      <div v-if="$slots.buttons" :class="{ 'button-align-right': align == 'right' }" class="ma-dialog-buttons not-select">
         <slot name="buttons"></slot>
       </div>
     </div>
@@ -43,7 +43,7 @@ export default {
       type: Function,
       require: false,
     },
-    value: {
+    modelValue: {
       type: Boolean,
       default: false,
     },
@@ -78,6 +78,12 @@ export default {
       position: 'relative',
       top: 'auto',
       left: 'auto',
+      visible: this.modelValue
+    }
+  },
+  watch: {
+    modelValue(val) {
+      this.visible = val
     }
   },
   mounted() {
@@ -111,12 +117,14 @@ export default {
   },
   methods: {
     show() {
+      this.visible = true
       this.$emit('change', true)
-      this.$emit('input', true)
+      this.$emit('update:modelValue', true)
     },
     hide() {
+      this.visible = false
       this.$emit('change', false)
-      this.$emit('input', false)
+      this.$emit('update:modelValue', false)
     },
     close() {
       this.$emit('onClose')

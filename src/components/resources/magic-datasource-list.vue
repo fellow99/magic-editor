@@ -36,35 +36,35 @@
       <template #content>
         <div class="ds-form">
           <label>名称</label>
-          <magic-input :value.sync="datasourceObj.name" placeholder="数据源名称，仅做展示使用"/>
+          <magic-input v-model:value="datasourceObj.name" placeholder="数据源名称，仅做展示使用"/>
         </div>
         <div class="ds-form">
           <label>Key</label>
-          <magic-input :value.sync="datasourceObj.key" placeholder="数据库key，后续代码中使用"/>
+          <magic-input v-model:value="datasourceObj.key" placeholder="数据库key，后续代码中使用"/>
         </div>
         <div class="ds-form">
           <label>URL</label>
-          <magic-input :value.sync="datasourceObj.url" placeholder="请输入jdbcurl，如：jdbc:mysql://localhost"/>
+          <magic-input v-model:value="datasourceObj.url" placeholder="请输入jdbcurl，如：jdbc:mysql://localhost"/>
         </div>
         <div class="ds-form">
           <label>用户名</label>
-          <magic-input :value.sync="datasourceObj.username" placeholder="请输入数据库用户名"/>
+          <magic-input v-model:value="datasourceObj.username" placeholder="请输入数据库用户名"/>
         </div>
         <div class="ds-form">
           <label>密码</label>
-          <magic-input :value.sync="datasourceObj.password" type="password" placeholder="请输入数据库密码"/>
+          <magic-input v-model:value="datasourceObj.password" type="password" placeholder="请输入数据库密码"/>
         </div>
         <div class="ds-form">
           <label>驱动类</label>
-          <magic-select :inputable="true" :border="true" :value.sync="datasourceObj.driverClassName" :options="drivers" :placeholder="'驱动类，可选，内部自动识别，也可以手动输入指定'"/>
+          <magic-select :inputable="true" :border="true" v-model:value="datasourceObj.driverClassName" :options="drivers" :placeholder="'驱动类，可选，内部自动识别，也可以手动输入指定'"/>
         </div>
         <div class="ds-form">
           <label>类型</label>
-          <magic-select :inputable="true" :border="true" :value.sync="datasourceObj.type" :options="datasourceTypes" :placeholder="'数据源类型，可选，也可以手动输入指定'"/>
+          <magic-select :inputable="true" :border="true" v-model:value="datasourceObj.type" :options="datasourceTypes" :placeholder="'数据源类型，可选，也可以手动输入指定'"/>
         </div>
         <div class="ds-form">
           <label>maxRows</label>
-          <magic-input :value.sync="datasourceObj.maxRows" placeholder="最多返回条数，-1未不限制"/>
+          <magic-input v-model:value="datasourceObj.maxRows" placeholder="最多返回条数，-1未不限制"/>
         </div>
         <div class="ds-form">
           <label>其它配置</label>
@@ -90,7 +90,7 @@ import {formatJson, isVisible, replaceURL} from '@/scripts/utils.js'
 import JavaClass from '@/scripts/editor/java-class.js'
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api'
 import store from "@/scripts/store";
-import MagicSelect from "@/components/common/magic-select";
+import MagicSelect from "@/components/common/magic-select.vue";
 
 export default {
   name: 'MagicDatasourceList',

@@ -91,4 +91,4 @@ Pattern.prototype._create = function() {
 
 Pattern.prototype._update = function() {};
 
-module.exports.Pattern = Pattern;
+export { Pattern };

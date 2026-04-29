@@ -8,8 +8,8 @@
 </template>
 
 <script>
-import MagicStructureArray from './magic-structure-array'
-import MagicStructureObject from './magic-structure-object'
+import MagicStructureArray from './magic-structure-array.vue'
+import MagicStructureObject from './magic-structure-object.vue'
 
 export default {
   name: 'MagicStructure',

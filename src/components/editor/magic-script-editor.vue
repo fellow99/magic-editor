@@ -81,7 +81,7 @@ import RequestParameter from '@/scripts/editor/request-parameter.js';
 import { CommandsRegistry } from 'monaco-editor/esm/vs/platform/commands/common/commands'
 import { KeybindingsRegistry } from 'monaco-editor/esm/vs/platform/keybinding/common/keybindingsRegistry.js'
 import { ContextKeyExpr } from 'monaco-editor/esm/vs/platform/contextkey/common/contextkey.js'
-import MagicTextIcon from "@/components/common/magic-text-icon";
+import MagicTextIcon from "@/components/common/magic-text-icon.vue";
 
 export default {
   name: 'MagicScriptEditor',

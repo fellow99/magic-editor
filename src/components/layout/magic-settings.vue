@@ -20,13 +20,13 @@
         <div class="ma-content">
           <div v-for="(item, key) in parameters" :key="'request_parameter_' + key" class="ma-table-row">
             <div :class="{ focus: parameterIndex === key && !item.name }">
-              <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.name" style="width: 100%"/>
+              <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.name" style="width: 100%"/>
             </div>
             <div>
-              <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.value" style="width: 100%"/>
+              <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.value" style="width: 100%"/>
             </div>
             <div>
-              <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.description" style="width: 100%"/>
+              <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.description" style="width: 100%"/>
             </div>
           </div>
         </div>
@@ -40,13 +40,13 @@
         <div class="ma-content">
           <div v-for="(item, key) in headers" :key="'request_header_' + key" class="ma-table-row">
             <div :class="{ focus: headerIndex === key && !item.name }">
-              <magic-input :focus="() => (headerIndex = key)" :value.sync="item.name" style="width: 100%"/>
+              <magic-input :focus="() => (headerIndex = key)" v-model:value="item.name" style="width: 100%"/>
             </div>
             <div>
-              <magic-input :focus="() => (headerIndex = key)" :value.sync="item.value" style="width: 100%"/>
+              <magic-input :focus="() => (headerIndex = key)" v-model:value="item.value" style="width: 100%"/>
             </div>
             <div>
-              <magic-input :focus="() => (headerIndex = key)" :value.sync="item.description" style="width: 100%"/>
+              <magic-input :focus="() => (headerIndex = key)" v-model:value="item.description" style="width: 100%"/>
             </div>
           </div>
         </div>

@@ -2,11 +2,11 @@
   <div class="ma-request-wrapper">
     <div class="ma-api-info">
       <label>请求方法</label>
-      <magic-select :options="options" :value.sync="info.method" defaultValue="GET"/>
+      <magic-select :options="options" v-model:value="info.method" defaultValue="GET"/>
       <label>接口名称</label>
-      <magic-input :value.sync="info.name" placeholder="请输入接口名称" style="flex:1"/>
+      <magic-input v-model:value="info.name" placeholder="请输入接口名称" style="flex:1"/>
       <label>请求路径</label>
-      <magic-input :value.sync="info.path" placeholder="请输入接口路径" style="flex: 2"/>
+      <magic-input v-model:value="info.path" placeholder="请输入接口路径" style="flex: 2"/>
     </div>
     <div class="ma-request-parameters">
       <ul class="not-select ma-nav-tab">
@@ -35,33 +35,33 @@
             <div v-for="(item, key) in info.parameters" :key="'request_parameter_' + key"
                  class="ma-table-row ma-table-request-row">
               <div style="width: 32px">
-                <magic-checkbox :focus="() => (parameterIndex = key)" :value.sync="item.required"/>
+                <magic-checkbox :focus="() => (parameterIndex = key)" v-model:value="item.required"/>
               </div>
               <div :class="{ focus: parameterIndex === key && !item.name }" style="width: 80px">
-                <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.name" style="width: 100%"/>
+                <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.name" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-file v-if="item.dataType && item.dataType.startsWith('MultipartFile')" :focus="() => (parameterIndex = key)" :value.sync="item.value" :multiple="item.dataType === 'MultipartFiles'"/>
-                <magic-input v-else :focus="() => (parameterIndex = key)" :value.sync="item.value" style="width: 100%"/>
+                <magic-file v-if="item.dataType && item.dataType.startsWith('MultipartFile')" :focus="() => (parameterIndex = key)" v-model:value="item.value" :multiple="item.dataType === 'MultipartFiles'"/>
+                <magic-input v-else :focus="() => (parameterIndex = key)" v-model:value="item.value" style="width: 100%"/>
               </div>
               <div style="width: 135px">
-                <magic-select :border="false" :focus="() => (parameterIndex = key)" :options="types" :value.sync="item.dataType" default-value="String" style="width: 100%"/>
+                <magic-select :border="false" :focus="() => (parameterIndex = key)" :options="types" v-model:value="item.dataType" default-value="String" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.defaultValue" style="width: 100%"/>
+                <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.defaultValue" style="width: 100%"/>
               </div>
               <div style="width: 100px">
-                <magic-select :border="false" :focus="() => (parameterIndex = key)" :options="validates" :value.sync="item.validateType"
+                <magic-select :border="false" :focus="() => (parameterIndex = key)" :options="validates" v-model:value="item.validateType"
                               default-value="pass" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.expression" style="width: 100%"/>
+                <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.expression" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.error" style="width: 100%"/>
+                <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.error" style="width: 100%"/>
               </div>
               <div style="flex:2">
-                <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.description" style="width: 100%"/>
+                <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.description" style="width: 100%"/>
               </div>
             </div>
           </div>
@@ -82,33 +82,33 @@
             <div v-for="(item, key) in info.headers" :key="'request_header_' + key"
                  class="ma-table-row ma-table-request-row">
               <div style="width: 32px">
-                <magic-checkbox :focus="() => (headerIndex = key)" :value.sync="item.required"/>
+                <magic-checkbox :focus="() => (headerIndex = key)" v-model:value="item.required"/>
               </div>
               <div :class="{ focus: headerIndex === key && !item.name }" style="width: 80px">
-                <magic-input :focus="() => (headerIndex = key)" :value.sync="item.name" style="width: 100%"/>
+                <magic-input :focus="() => (headerIndex = key)" v-model:value="item.name" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (headerIndex = key)" :value.sync="item.value" style="width: 100%"/>
+                <magic-input :focus="() => (headerIndex = key)" v-model:value="item.value" style="width: 100%"/>
               </div>
               <div style="width:100px">
                 <magic-select :border="false" :focus="() => (headerIndex = key)" :options="headerTypes"
-                              :value.sync="item.dataType" default-value="String" style="width: 100%"/>
+                              v-model:value="item.dataType" default-value="String" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (headerIndex = key)" :value.sync="item.defaultValue" style="width: 100%"/>
+                <magic-input :focus="() => (headerIndex = key)" v-model:value="item.defaultValue" style="width: 100%"/>
               </div>
               <div style="width:100px">
                 <magic-select :border="false" :focus="() => (headerIndex = key)" :options="validates"
-                              :value.sync="item.validateType" default-value="pass" style="width: 100%"/>
+                              v-model:value="item.validateType" default-value="pass" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (headerIndex = key)" :value.sync="item.expression" style="width: 100%"/>
+                <magic-input :focus="() => (headerIndex = key)" v-model:value="item.expression" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (headerIndex = key)" :value.sync="item.error" style="width: 100%"/>
+                <magic-input :focus="() => (headerIndex = key)" v-model:value="item.error" style="width: 100%"/>
               </div>
               <div style="flex:2">
-                <magic-input :focus="() => (headerIndex = key)" :value.sync="item.description" style="width: 100%"/>
+                <magic-input :focus="() => (headerIndex = key)" v-model:value="item.description" style="width: 100%"/>
               </div>
             </div>
           </div>
@@ -128,27 +128,27 @@
             <div v-for="(item, key) in info.paths" :key="'request_header_' + key"
                  class="ma-table-row ma-table-request-row">
               <div :class="{ focus: pathIndex === key && !item.name }" style="width: 80px">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.name" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.name" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.value" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.value" style="width: 100%"/>
               </div>
               <div style="width:100px">
                 <magic-select :border="false" :focus="() => (pathIndex = key)" :options="headerTypes"
-                              :value.sync="item.dataType" default-value="String" style="width: 100%"/>
+                              v-model:value="item.dataType" default-value="String" style="width: 100%"/>
               </div>
               <div style="width: 100px">
                 <magic-select :border="false" :focus="() => (pathIndex = key)" :options="validates"
-                              :value.sync="item.validateType" default-value="pass" style="width: 100%"/>
+                              v-model:value="item.validateType" default-value="pass" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.expression" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.expression" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.error" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.error" style="width: 100%"/>
               </div>
               <div style="flex:2">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.description" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.description" style="width: 100%"/>
               </div>
             </div>
           </div>
@@ -168,7 +168,7 @@
 
         </div>
         <div v-show="showIndex === 4" class="ma-layout-container" style="overflow: hidden; right: 0">
-          <magic-textarea :value.sync="info.description" style="width: 100%; height: 100%; margin: 2px"/>
+          <magic-textarea v-model:value="info.description" style="width: 100%; height: 100%; margin: 2px"/>
         </div>
       </div>
     </div>

@@ -28,7 +28,7 @@
 
 'use strict';
 
-var BaseOptions = require('../core/options').Options;
+import { Options as BaseOptions } from '../core/options.js';
 
 var validPositionValues = ['before-newline', 'after-newline', 'preserve-newline'];
 
@@ -90,4 +90,4 @@ Options.prototype = new BaseOptions();
 
 
 
-module.exports.Options = Options;
+export { Options };

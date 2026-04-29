@@ -35,23 +35,23 @@ var nonASCIIidentifierChars = "\\u0300-\\u036f\\u0483-\\u0487\\u0591-\\u05bd\\u0
 //var nonASCIIidentifierStart = new RegExp("[" + nonASCIIidentifierStartChars + "]");
 //var nonASCIIidentifier = new RegExp("[" + nonASCIIidentifierStartChars + nonASCIIidentifierChars + "]");
 
-var identifierStart = "(?:\\\\u[0-9a-fA-F]{4}|[" + baseASCIIidentifierStartChars + nonASCIIidentifierStartChars + "])";
+var identifierStartPattern = "(?:\\\\u[0-9a-fA-F]{4}|[" + baseASCIIidentifierStartChars + nonASCIIidentifierStartChars + "])";
 var identifierChars = "(?:\\\\u[0-9a-fA-F]{4}|[" + baseASCIIidentifierChars + nonASCIIidentifierStartChars + nonASCIIidentifierChars + "])*";
 
-exports.identifier = new RegExp(identifierStart + identifierChars, 'g');
-exports.identifierStart = new RegExp(identifierStart);
-exports.identifierMatch = new RegExp("(?:\\\\u[0-9a-fA-F]{4}|[" + baseASCIIidentifierChars + nonASCIIidentifierStartChars + nonASCIIidentifierChars + "])+");
+export const identifier = new RegExp(identifierStartPattern + identifierChars, 'g');
+export const identifierStart = new RegExp(identifierStartPattern);
+export const identifierMatch = new RegExp("(?:\\\\u[0-9a-fA-F]{4}|[" + baseASCIIidentifierChars + nonASCIIidentifierStartChars + nonASCIIidentifierChars + "])+");
 
 // var nonASCIIwhitespace = /[\u1680\u180e\u2000-\u200a\u202f\u205f\u3000\ufeff]/; // jshint ignore:line
 
 // Whether a single character denotes a newline.
 
-exports.newline = /[\n\r\u2028\u2029]/;
+export const newline = /[\n\r\u2028\u2029]/;
 
 // Matches a whole line break (where CRLF is considered a single
 // line break). Used to count lines.
 
 // in javascript, these two differ
 // in python they are the same, different methods are called on them
-exports.lineBreak = new RegExp('\r\n|' + exports.newline.source);
-exports.allLineBreaks = new RegExp(exports.lineBreak.source, 'g');
+export const lineBreak = new RegExp('\r\n|' + newline.source);
+export const allLineBreaks = new RegExp(lineBreak.source, 'g');

@@ -108,7 +108,7 @@ import { replaceURL, requestGroup, goToAnchor, deepClone } from '@/scripts/utils
 import JavaClass from '@/scripts/editor/java-class.js'
 import Key from '@/scripts/hotkey.js'
 import contants from '@/scripts/contants.js'
-import MagicTextIcon from "@/components/common/magic-text-icon";
+import MagicTextIcon from "@/components/common/magic-text-icon.vue";
 
 export default {
   name: 'MagicFunctionList',

@@ -31,27 +31,27 @@
             <div v-for="(item, key) in info.paths" :key="key"
                  class="ma-table-row ma-table-request-row">
               <div :class="{ focus: pathIndex === key && !item.name }" style="flex:1">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.name" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.name" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.value" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.value" style="width: 100%"/>
               </div>
               <div style="width:100px">
                 <magic-select :border="false" :focus="() => (pathIndex = key)" :options="types"
-                              :value.sync="item.dataType" default-value="String" style="width: 100%"/>
+                              v-model:value="item.dataType" default-value="String" style="width: 100%"/>
               </div>
               <div style="width: 100px">
                 <magic-select :border="false" :focus="() => (pathIndex = key)" :options="validates"
-                              :value.sync="item.validateType" default-value="pass" style="width: 100%"/>
+                              v-model:value="item.validateType" default-value="pass" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.expression" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.expression" style="width: 100%"/>
               </div>
               <div style="flex:1">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.error" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.error" style="width: 100%"/>
               </div>
               <div style="flex:2">
-                <magic-input :focus="() => (pathIndex = key)" :value.sync="item.description" style="width: 100%"/>
+                <magic-input :focus="() => (pathIndex = key)" v-model:value="item.description" style="width: 100%"/>
               </div>
             </div>
           </div>
@@ -69,13 +69,13 @@
                               :inputable="true"
                               :options="defaultOptions"
                               :select="value => onSelect(value, key)"
-                              :value.sync="item.name" style="width: 100%"/>
+                              v-model:value="item.name" style="width: 100%"/>
               </div>
               <div>
-                <magic-input :focus="() => (optionIndex = key)" :value.sync="item.value" style="width: 100%"/>
+                <magic-input :focus="() => (optionIndex = key)" v-model:value="item.value" style="width: 100%"/>
               </div>
               <div>
-                <magic-input :focus="() => (optionIndex = key)" :value.sync="item.description" style="width: 100%"/>
+                <magic-input :focus="() => (optionIndex = key)" v-model:value="item.description" style="width: 100%"/>
               </div>
             </div>
           </div>

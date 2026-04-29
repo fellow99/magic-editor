@@ -23,8 +23,8 @@ export default {
     if (window.MAGIC_EDITOR_CONFIG) {
       defaultConfig = {...defaultConfig, ...window.MAGIC_EDITOR_CONFIG}
     }
-    defaultConfig.baseURL = process.env.NODE_ENV === 'development' ? 'http://localhost:9999/magic/web' : './';
-    defaultConfig.serverURL = process.env.NODE_ENV === 'development' ? 'http://localhost:9999/' : './';
+    defaultConfig.baseURL = import.meta.env.DEV ? 'http://localhost:9999/magic/web' : './';
+    defaultConfig.serverURL = import.meta.env.DEV ? 'http://localhost:9999/' : './';
     defaultConfig.inJar = true;
     return {
       config: defaultConfig

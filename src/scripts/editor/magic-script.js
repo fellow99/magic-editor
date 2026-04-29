@@ -5,7 +5,7 @@ import FoldingRangeProvider from './folding.js';
 import SignatureHelpProvider from './signature.js';
 import HoverProvider from './hover.js';
 import {initMybatis} from './mybatis.js'
-const Beautifier = require('../beautifier/javascript/beautifier').Beautifier
+import { Beautifier } from '../beautifier/javascript/beautifier.js';
 
 export const initializeMagicScript = () => {
     initMybatis();

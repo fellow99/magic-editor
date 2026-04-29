@@ -117,7 +117,7 @@ import { replaceURL, download as downloadFile, requestGroup, goToAnchor, deepClo
 import contants from '@/scripts/contants.js'
 import Key from '@/scripts/hotkey.js'
 import JavaClass from "@/scripts/editor/java-class.js"
-import MagicTextIcon from "@/components/common/magic-text-icon";
+import MagicTextIcon from "@/components/common/magic-text-icon.vue";
 
 export default {
   name: 'MagicApiList',

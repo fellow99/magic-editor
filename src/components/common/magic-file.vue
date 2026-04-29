@@ -6,7 +6,7 @@
 </template>
 
 <script>
-import MagicInput from './magic-input'
+import MagicInput from './magic-input.vue'
 export default {
   name: 'MagicFile',
   components: { MagicInput },

@@ -188,6 +188,4 @@ function _normalizeOpts(options) {
   return convertedOpts;
 }
 
-module.exports.Options = Options;
-module.exports.normalizeOpts = _normalizeOpts;
-module.exports.mergeOpts = _mergeOpts;
+export { Options, _normalizeOpts as normalizeOpts, _mergeOpts as mergeOpts };

@@ -1,13 +1,11 @@
-import Vue from 'vue'
+import { createApp } from 'vue'
 import App from './App.vue'
 import MagicContextMenu from './components/common/magic-contextmenu'
 import Modal from './components/common/modal'
 
-Vue.config.productionTip = false
+const app = createApp(App)
 
-Vue.use(MagicContextMenu)
-Vue.use(Modal)
+app.use(MagicContextMenu)
+app.use(Modal)
 
-new Vue({
-    render: h => h(App),
-}).$mount('#app')
+app.mount('#app')

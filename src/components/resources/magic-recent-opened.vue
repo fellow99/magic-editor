@@ -23,7 +23,7 @@ import Key from '@/scripts/hotkey.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import store from '@/scripts/store.js'
 import contants from "@/scripts/contants.js"
-import MagicTextIcon from "@/components/common/magic-text-icon";
+import MagicTextIcon from "@/components/common/magic-text-icon.vue";
 
 export default {
   name: 'MagicRecentOpened',

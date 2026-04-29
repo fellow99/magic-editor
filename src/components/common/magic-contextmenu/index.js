@@ -1,39 +1,45 @@
-import Vue from 'vue';
-import Contextmenu from "./Contextmenu";
-import Submenu from "./Submenu";
-import {COMPONENT_NAME} from "./constant";
+import { createApp } from 'vue'
+import Contextmenu from "./Contextmenu.vue"
+import Submenu from "./Submenu.vue"
+import {COMPONENT_NAME} from "./constant"
 
-const ContextmenuConstructor = Vue.extend(Contextmenu);
-Vue.component(COMPONENT_NAME, Submenu);
+let lastInstance = null
+let lastApp = null
 
-function install(Vue) {
-    let lastInstance = null;
-    const ContextmenuProxy = function (options) {
-        let instance = new ContextmenuConstructor();
-        instance.menus = options.menus;
-        instance.position.x = options.x || 0;
-        instance.position.y = options.y || 0;
-        if (options.event) {
-            instance.position.x = options.event.clientX;
-            instance.position.y = options.event.clientY;
-        }
-        instance.customClass = options.customClass;
-        options.minWidth && (instance.style.minWidth = options.minWidth);
-        options.zIndex && (instance.style.zIndex = options.zIndex);
-        instance.destroy = options.destroy;
-        ContextmenuProxy.destroy();
-        lastInstance = instance;
-        instance.$mount();
-    };
-    ContextmenuProxy.destroy = function (options) {
-        if (lastInstance) {
-            lastInstance.$destroy();
-            lastInstance = null;
-        }
-    };
-    Vue.prototype.$magicContextmenu = ContextmenuProxy;
+function ContextmenuProxy(options) {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    const app = createApp(Contextmenu, {
+        menus: options.menus,
+        position: {
+            x: options.x || (options.event ? options.event.clientX : 0),
+            y: options.y || (options.event ? options.event.clientY : 0)
+        },
+        customClass: options.customClass,
+        minWidth: options.minWidth,
+        zIndex: options.zIndex,
+        destroy: options.destroy
+    })
+    app.component(COMPONENT_NAME, Submenu)
+
+    ContextmenuProxy.destroy()
+    lastApp = app
+    lastInstance = app.mount(container)
+}
+
+ContextmenuProxy.destroy = function() {
+    if (lastApp) {
+        lastApp.unmount()
+        lastApp = null
+        lastInstance = null
+    }
+}
+
+function install(app) {
+    app.config.globalProperties.$magicContextmenu = ContextmenuProxy
 }
 
 export default {
     install
-};
+}

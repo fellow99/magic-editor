@@ -51,4 +51,4 @@ function Token(type, text, newlines, whitespace_before) {
 }
 
 
-module.exports.Token = Token;
+export { Token };

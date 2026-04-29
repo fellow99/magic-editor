@@ -2,11 +2,11 @@
   <div class="ma-request-wrapper">
     <div class="ma-api-info">
       <label>返回值</label>
-      <magic-select :options="types" :value.sync="info.returnType" defaultValue="Object"/>
+      <magic-select :options="types" v-model:value="info.returnType" defaultValue="Object"/>
       <label>函数名称</label>
-      <magic-input :value.sync="info.name" placeholder="请输入函数名称" width="255px"/>
+      <magic-input v-model:value="info.name" placeholder="请输入函数名称" width="255px"/>
       <label>函数路径</label>
-      <magic-input :value.sync="info.path" placeholder="请输入函数路径" width="500px"/>
+      <magic-input v-model:value="info.path" placeholder="请输入函数路径" width="500px"/>
     </div>
     <div class="ma-request-parameters">
       <ul class="not-select ma-nav-tab">
@@ -29,21 +29,21 @@
             <div v-for="(item, key) in info.parameters" :key="'request_parameter_' + key"
                  class="ma-table-row">
               <div :class="{ focus: parameterIndex === key && !item.name }">
-                <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.name"
+                <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.name"
                              style="width: 100%"/>
               </div>
               <div>
-                <magic-select :focus="() => (parameterIndex = key)" :options="types" :value.sync="item.type"  style="width: 100%"/>
+                <magic-select :focus="() => (parameterIndex = key)" :options="types" v-model:value="item.type"  style="width: 100%"/>
               </div>
               <div>
-                <magic-input :focus="() => (parameterIndex = key)" :value.sync="item.description"
+                <magic-input :focus="() => (parameterIndex = key)" v-model:value="item.description"
                              style="width: 100%"/>
               </div>
             </div>
           </div>
         </div>
         <div v-show="showIndex === 1" class="ma-layout-container" style="overflow: hidden; right: 0">
-          <magic-textarea :value.sync="info.description" style="width: 100%; height: 100%; margin: 2px"/>
+          <magic-textarea v-model:value="info.description" style="width: 100%; height: 100%; margin: 2px"/>
         </div>
       </div>
     </div>

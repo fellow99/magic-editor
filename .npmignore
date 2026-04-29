@@ -32,7 +32,7 @@ pnpm-debug.log*
 
 
 # 各种配置文件
-/*.config.js
+vite.config.js
 package-lock.json
 yarn.lock
 .yarnrc

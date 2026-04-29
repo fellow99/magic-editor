@@ -1,5 +1,5 @@
 <template>
-  <magic-dialog ref="dialog" v-model="value" :title="title" align="right" @onClose="closeHandle">
+  <magic-dialog ref="dialog" v-model="visible" :title="title" align="right" @onClose="closeHandle">
     <template #content>
       <div v-html="content"/>
     </template>
@@ -46,6 +46,16 @@ export default {
     value: {
       type: Boolean,
       default: false
+    }
+  },
+  data() {
+    return {
+      visible: this.value
+    }
+  },
+  watch: {
+    value(val) {
+      this.visible = val
     }
   },
   methods: {

@@ -189,4 +189,4 @@ InputScanner.prototype.lookBack = function(testVal) {
     .toLowerCase() === testVal;
 };
 
-module.exports.InputScanner = InputScanner;
+export { InputScanner };

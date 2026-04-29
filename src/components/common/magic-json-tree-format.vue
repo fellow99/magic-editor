@@ -9,6 +9,10 @@
 </template>
 
 <script>
+import imgEnd from '../../assets/images/elbow-end.gif'
+import imgLine from '../../assets/images/elbow-line.gif'
+import img from '../../assets/images/elbow.gif'
+import imgIndent from '../../assets/images/s.gif'
 
   export default {
     name: 'MagicJsonTreeFormat',
@@ -23,10 +27,10 @@
     },
     data() {
       return {
-        imgEnd: require('../../assets/images/elbow-end.gif'),
-        imgLine: require('../../assets/images/elbow-line.gif'),
-        img: require('../../assets/images/elbow.gif'),
-        imgIndent: require('../../assets/images/s.gif')
+        imgEnd,
+        imgLine,
+        img,
+        imgIndent
       }
     },
   }

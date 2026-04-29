@@ -1,50 +1,48 @@
+import { createApp, h } from 'vue'
 import MagicAlert from './magic-alert.vue'
 import MagicConfirm from './magic-confirm.vue'
 import MagicDialog from './magic-dialog.vue'
-import Vue from 'vue'
 
-const MagicAlertConstructor = Vue.extend(MagicAlert)
-const MagicConfirmConstructor = Vue.extend(MagicConfirm)
-const MagicDialogConstructor = Vue.extend(MagicDialog)
+function createModalProxy(Component) {
+    return function(options) {
+        const container = document.createElement('div')
+        document.body.appendChild(container)
 
-const MagicAlertProxy = function (options) {
-    let instance = new MagicAlertConstructor()
-    instance.value = true
-    for (let key in options) {
-        if (options[key] !== undefined && options[key] !== null) {
-            instance[key] = options[key]
+        const app = createApp({
+            data() {
+                return {
+                    visible: true,
+                    ...options
+                }
+            },
+            render() {
+                const props = { visible: this.visible }
+                for (let key in options) {
+                    if (options[key] !== undefined && options[key] !== null) {
+                        props[key] = this[key]
+                    }
+                }
+                return h(Component, props)
+            }
+        })
+
+        app.mount(container)
+
+        const maContainer = document.getElementsByClassName('ma-container')[0]
+        if (maContainer) {
+            maContainer.append(container)
         }
     }
-    instance.$mount()
-    document.getElementsByClassName('ma-container')[0].append(instance.$el)
-}
-const MagicConfirmProxy = function (options) {
-    let instance = new MagicConfirmConstructor()
-    instance.value = true
-    for (let key in options) {
-        if (options[key] !== undefined && options[key] !== null) {
-            instance[key] = options[key]
-        }
-    }
-    instance.$mount()
-    document.getElementsByClassName('ma-container')[0].append(instance.$el)
-}
-const MagicDialogProxy = function (options) {
-    let instance = new MagicDialogConstructor()
-    instance.value = true
-    for (let key in options) {
-        if (options[key] !== undefined && options[key] !== null) {
-            instance[key] = options[key]
-        }
-    }
-    instance.$mount()
-    document.getElementsByClassName('ma-container')[0].append(instance.$el)
 }
 
-function install(Vue) {
-    Vue.prototype.$magicAlert = MagicAlertProxy
-    Vue.prototype.$magicConfirm = MagicConfirmProxy
-    Vue.prototype.$magicDialog = MagicDialogProxy
+const MagicAlertProxy = createModalProxy(MagicAlert)
+const MagicConfirmProxy = createModalProxy(MagicConfirm)
+const MagicDialogProxy = createModalProxy(MagicDialog)
+
+function install(app) {
+    app.config.globalProperties.$magicAlert = MagicAlertProxy
+    app.config.globalProperties.$magicConfirm = MagicConfirmProxy
+    app.config.globalProperties.$magicDialog = MagicDialogProxy
 }
 
 const modal = {

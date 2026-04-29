@@ -20,38 +20,38 @@
         <div class="box-item">
           <div class="item-title">参数类型</div>
           <div class="item-content">
-            <magic-select :options="bodyTypes" :value.sync="fieldObj.dataType" default-value="String" style="width: 100%"/>
+            <magic-select :options="bodyTypes" v-model:value="fieldObj.dataType" default-value="String" style="width: 100%"/>
           </div>
         </div>
         <template v-if="type == 'request'">
           <div class="box-item">
             <div class="item-title">是否必填</div>
             <div class="item-content">
-              <div style="width: 25px; height: 25px;"><magic-checkbox :value.sync="fieldObj.required"/></div>
+              <div style="width: 25px; height: 25px;"><magic-checkbox v-model:value="fieldObj.required"/></div>
             </div>
           </div>
           <div class="box-item">
             <div class="item-title">默认值</div>
             <div class="item-content">
-              <magic-input :value.sync="fieldObj.defaultValue" style="width: 100%"/>
+              <magic-input v-model:value="fieldObj.defaultValue" style="width: 100%"/>
             </div>
           </div>
           <div class="box-item">
             <div class="item-title">验证方式</div>
             <div class="item-content">
-              <magic-select :options="validates" :value.sync="fieldObj.validateType" default-value="pass" style="width: 100%"/>
+              <magic-select :options="validates" v-model:value="fieldObj.validateType" default-value="pass" style="width: 100%"/>
             </div>
           </div>
           <div class="box-item">
             <div class="item-title">表达式或正则表达式</div>
             <div class="item-content">
-              <magic-input :value.sync="fieldObj.expression" style="width: 100%"/>
+              <magic-input v-model:value="fieldObj.expression" style="width: 100%"/>
             </div>
           </div>
           <div class="box-item">
             <div class="item-title">验证说明</div>
             <div class="item-content">
-              <magic-input :value.sync="fieldObj.error" style="width: 100%"/>
+              <magic-input v-model:value="fieldObj.error" style="width: 100%"/>
             </div>
           </div>
         </template>
@@ -59,7 +59,7 @@
         <div class="box-item">
           <div class="item-title">字段注释</div>
           <div class="item-content">
-            <magic-input :value.sync="fieldObj.description" style="width: 100%"/>
+            <magic-input v-model:value="fieldObj.description" style="width: 100%"/>
           </div>
         </div>
 
@@ -72,14 +72,14 @@
         <div class="box-item">
           <div class="item-title">对象注释</div>
           <div class="item-content">
-            <magic-input :value.sync="fieldObj.description" style="width: 100%"/>
+            <magic-input v-model:value="fieldObj.description" style="width: 100%"/>
           </div>
         </div>
         <template v-if="type == 'request'">
           <div class="box-item">
             <div class="item-title">是否必填</div>
             <div class="item-content">
-              <div style="width: 25px; height: 25px;"><magic-checkbox :value.sync="fieldObj.required"/></div>
+              <div style="width: 25px; height: 25px;"><magic-checkbox v-model:value="fieldObj.required"/></div>
             </div>
           </div>
         </template>
@@ -93,7 +93,7 @@
   import MagicInput from '@/components/common/magic-input.vue'
   import MagicSelect from '@/components/common/magic-select.vue'
   import MagicCheckbox from '@/components/common/magic-checkbox.vue'
-  import MagicJsonTree from './magic-json-tree'
+  import MagicJsonTree from './magic-json-tree.vue'
 
   export default {
     name: 'MagicJson',

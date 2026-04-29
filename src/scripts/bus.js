@@ -1,17 +1,39 @@
-import Vue from 'vue'
 import contants from './contants.js'
-import {formatDate} from "@/scripts/utils.js";
-const statusLog = [];
-const bus = new Vue()
+import {formatDate} from "@/scripts/utils.js"
+
+const statusLog = []
+
+function createEventBus() {
+    const events = {}
+    return {
+        $on(event, fn) {
+            (events[event] = events[event] || []).push(fn)
+        },
+        $off(event, fn) {
+            if (!events[event]) return
+            if (!fn) {
+                events[event] = []
+            } else {
+                events[event] = events[event].filter(f => f !== fn)
+            }
+        },
+        $emit(event, ...args) {
+            (events[event] || []).forEach(fn => fn(...args))
+        }
+    }
+}
+
+const bus = createEventBus()
+
 try {
-    let element = document.createElement("script");
-    element.src = "https://s4.cnzz.com/z_stat.php?id=1280031557&web_id=1280031557";
-    element.setAttribute('async', true);
-    let s = document.getElementsByTagName("script")[0];
-    s.parentNode.insertBefore(element, s);
+    let element = document.createElement("script")
+    element.src = "https://s4.cnzz.com/z_stat.php?id=1280031557&web_id=1280031557"
+    element.setAttribute('async', true)
+    let s = document.getElementsByTagName("script")[0]
+    s.parentNode.insertBefore(element, s)
     element.onload = element.onreadystatechange = function () {
         if (!this.readyState || this.readyState == 'loaded' || this.readyState == 'complete') {
-            bus.$emit('report', contants.MAGIC_API_VERSION);
+            bus.$emit('report', contants.MAGIC_API_VERSION)
         }
     }
 } catch (ignored) {
@@ -30,6 +52,6 @@ bus.$on('status', (content) => {
         content
     })
 })
-bus.$getStatusLog = () => statusLog;
+bus.$getStatusLog = () => statusLog
 bus.$clearStatusLog = () => statusLog.length = 0
-export default bus 
+export default bus

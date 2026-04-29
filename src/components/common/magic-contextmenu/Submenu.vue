@@ -11,7 +11,7 @@
         <template v-if="!item.hidden">
           <div
               v-if="item.disabled"
-              :key="index"
+              :key="'d' + index"
               :class="[
                 commonClass.menuItem, commonClass.unclickableMenuItem,
                 'magic-contextmenu-item', 'magic-contextmenu-item-disabled',
@@ -26,7 +26,7 @@
           </div>
           <div
               v-else-if="item.children"
-              :key="index"
+              :key="'c' + index"
               :class="[
                 commonClass.menuItem, commonClass.unclickableMenuItem,
                 'magic-contextmenu-item', 'magic-contextmenu-item-available',
@@ -43,7 +43,7 @@
           </div>
           <div
               v-else
-              :key="index"
+              :key="'n' + index"
               :class="[
                 commonClass.menuItem, commonClass.clickableMenuItem,
                 'magic-contextmenu-item', 'magic-contextmenu-item-available',
@@ -65,144 +65,150 @@
 </template>
 
 <script>
-import Vue from "vue";
+import { createApp } from "vue"
 import {
   COMPONENT_NAME,
   SUBMENU_OPEN_TREND_LEFT,
   SUBMENU_OPEN_TREND_RIGHT,
   SUBMENU_X_OFFSET,
   SUBMENU_Y_OFFSET
-} from "./constant";
+} from "./constant.js"
 
 export default {
   name: COMPONENT_NAME,
+  props: {
+    commonClass: { type: Object, default: () => ({ menu: null, menuItem: null, clickableMenuItem: null, unclickableMenuItem: null }) },
+    menus: { type: Array, default: () => [] },
+    position: { type: Object, default: () => ({ x: 0, y: 0, width: 0, height: 0 }) },
+    style: { type: Object, default: () => ({ left: 0, top: 0, zIndex: 2, minWidth: 150 }) },
+    customClass: { type: String, default: null },
+    openTrend: { type: String, default: SUBMENU_OPEN_TREND_RIGHT }
+  },
   data() {
     return {
-      commonClass: {
-        menu: null,
-        menuItem: null,
-        clickableMenuItem: null,
-        unclickableMenuItem: null
-      },
       activeSubmenu: {
         index: null,
-        instance: null
+        instance: null,
+        app: null
       },
-      menus: [],
-      position: {
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0
-      },
-      style: {
-        left: 0,
-        top: 0,
-        zIndex: 2,
-        minWidth: 150
-      },
-      customClass: null,
       visible: false,
       hasIcon: false,
-      openTrend: SUBMENU_OPEN_TREND_RIGHT
-    };
+      localOpenTrend: this.openTrend
+    }
   },
   mounted() {
-    this.visible = true;
+    this.visible = true
     for (let item of this.menus) {
       if (item.icon) {
-        this.hasIcon = true;
-        break;
+        this.hasIcon = true
+        break
       }
     }
     this.$nextTick(() => {
-      const windowWidth = document.documentElement.clientWidth;
-      const windowHeight = document.documentElement.clientHeight;
-      const menu = this.$refs.menu;
-      const menuWidth = menu.offsetWidth;
-      const menuHeight = menu.offsetHeight;
+      const windowWidth = document.documentElement.clientWidth
+      const windowHeight = document.documentElement.clientHeight
+      const menu = this.$refs.menu
+      const menuWidth = menu.offsetWidth
+      const menuHeight = menu.offsetHeight
 
-      (this.openTrend === SUBMENU_OPEN_TREND_LEFT
+      (this.localOpenTrend === SUBMENU_OPEN_TREND_LEFT
           ? this.leftOpen
-          : this.rightOpen)(windowWidth, windowHeight, menuWidth);
+          : this.rightOpen)(windowWidth, windowHeight, menuWidth)
 
-      this.style.top = this.position.y;
+      this.style.top = this.position.y
       if (this.position.y + menuHeight > windowHeight) {
         if (this.position.height === 0) {
-          this.style.top = this.position.y - menuHeight;
+          this.style.top = this.position.y - menuHeight
         } else {
-          this.style.top = windowHeight - menuHeight;
+          this.style.top = windowHeight - menuHeight
         }
       }
-    });
+    })
   },
   methods: {
     leftOpen(windowWidth, windowHeight, menuWidth) {
-      this.style.left = this.position.x - menuWidth;
-      this.openTrend = SUBMENU_OPEN_TREND_LEFT;
+      this.style.left = this.position.x - menuWidth
+      this.localOpenTrend = SUBMENU_OPEN_TREND_LEFT
       if (this.style.left < 0) {
-        this.openTrend = SUBMENU_OPEN_TREND_RIGHT;
+        this.localOpenTrend = SUBMENU_OPEN_TREND_RIGHT
         if (this.position.width === 0) {
-          this.style.left = 0;
+          this.style.left = 0
         } else {
-          this.style.left = this.position.x + this.position.width;
+          this.style.left = this.position.x + this.position.width
         }
       }
     },
     rightOpen(windowWidth, windowHeight, menuWidth) {
-      this.style.left = this.position.x + this.position.width;
-      this.openTrend = SUBMENU_OPEN_TREND_RIGHT;
+      this.style.left = this.position.x + this.position.width
+      this.localOpenTrend = SUBMENU_OPEN_TREND_RIGHT
       if (this.style.left + menuWidth > windowWidth) {
-        this.openTrend = SUBMENU_OPEN_TREND_LEFT;
+        this.localOpenTrend = SUBMENU_OPEN_TREND_LEFT
         if (this.position.width === 0) {
-          this.style.left = windowWidth - menuWidth;
+          this.style.left = windowWidth - menuWidth
         } else {
-          this.style.left = this.position.x - menuWidth;
+          this.style.left = this.position.x - menuWidth
         }
       }
     },
     enterItem(e, item, index) {
       if (!this.visible) {
-        return;
+        return
       }
       if (this.activeSubmenu.instance) {
         if (this.activeSubmenu.index === index) {
-          return;
+          return
         } else {
-          this.activeSubmenu.instance.close();
-          this.activeSubmenu.instance = null;
-          this.activeSubmenu.index = null;
+          this.closeActiveSubmenu()
         }
       }
       if (!item.children) {
-        return;
+        return
       }
-      const menuItemClientRect = e.target.getBoundingClientRect();
-      const SubmenuConstructor = Vue.component(COMPONENT_NAME);
-      this.activeSubmenu.index = index;
-      this.activeSubmenu.instance = new SubmenuConstructor();
-      this.activeSubmenu.instance.menus = item.children;
-      this.activeSubmenu.instance.openTrend = this.openTrend;
-      this.activeSubmenu.instance.commonClass = this.commonClass;
-      this.activeSubmenu.instance.position = {
+      const menuItemClientRect = e.target.getBoundingClientRect()
+      const container = document.createElement('div')
+      document.body.appendChild(container)
+
+      const submenuStyle = { ...this.style }
+      const submenuPosition = {
         x: menuItemClientRect.x + SUBMENU_X_OFFSET,
         y: menuItemClientRect.y + SUBMENU_Y_OFFSET,
         width: menuItemClientRect.width - 2 * SUBMENU_X_OFFSET,
         height: menuItemClientRect.width
-      };
-      this.activeSubmenu.instance.style.minWidth =
-          typeof item.minWidth === "number" ? item.minWidth : this.style.minWidth;
-      this.activeSubmenu.instance.style.zIndex = this.style.zIndex;
-      this.activeSubmenu.instance.customClass =
-          typeof item.customClass === "string"
-              ? item.customClass
-              : this.customClass;
-      this.activeSubmenu.instance.$mount();
-      document.getElementsByClassName('ma-container')[0].append(this.activeSubmenu.instance.$el);
+      }
+
+      this.activeSubmenu.index = index
+      const app = createApp({
+        extends: this.$options,
+        propsData: {
+          menus: item.children,
+          openTrend: this.localOpenTrend,
+          commonClass: this.commonClass,
+          position: submenuPosition,
+          style: submenuStyle,
+          minWidth: typeof item.minWidth === "number" ? item.minWidth : this.style.minWidth,
+          zIndex: this.style.zIndex,
+          customClass: typeof item.customClass === "string" ? item.customClass : this.customClass
+        }
+      })
+      app.component('Submenu', this.$options)
+
+      this.activeSubmenu.app = app
+      this.activeSubmenu.instance = app.mount(container)
+    },
+    closeActiveSubmenu() {
+      if (this.activeSubmenu.instance && this.activeSubmenu.instance.close) {
+        this.activeSubmenu.instance.close()
+      }
+      if (this.activeSubmenu.app) {
+        this.activeSubmenu.app.unmount()
+      }
+      this.activeSubmenu.instance = null
+      this.activeSubmenu.app = null
+      this.activeSubmenu.index = null
     },
     itemClick(item) {
       if (!this.visible) {
-        return;
+        return
       }
       if (
           item &&
@@ -210,20 +216,18 @@ export default {
           !item.hidden &&
           typeof item.onClick === "function"
       ) {
-        return item.onClick();
+        return item.onClick()
       }
     },
     close() {
-      this.visible = false;
-      if (this.activeSubmenu.instance) {
-        this.activeSubmenu.instance.close();
-      }
+      this.visible = false
+      this.closeActiveSubmenu()
       this.$nextTick(() => {
-        this.$destroy();
-      });
+        this.$emit('close')
+      })
     }
   }
-};
+}
 </script>
 
 <style>

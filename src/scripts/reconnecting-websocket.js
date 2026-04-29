@@ -100,7 +100,7 @@
     } else {
         global.ReconnectingWebSocket = factory();
     }
-})(this, function () {
+})(typeof window !== 'undefined' ? window : globalThis, function () {
 
     if (!('WebSocket' in window)) {
         return;
@@ -380,3 +380,6 @@
 
     return ReconnectingWebSocket;
 });
+
+const _ReconnectingWebSocket = typeof module !== 'undefined' && module.exports ? module.exports : (typeof window !== 'undefined' ? window.ReconnectingWebSocket : globalThis.ReconnectingWebSocket);
+export default _ReconnectingWebSocket;

@@ -59,4 +59,4 @@ Directives.prototype.readIgnored = function(input) {
 };
 
 
-module.exports.Directives = Directives;
+export { Directives };

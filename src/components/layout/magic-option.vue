@@ -16,13 +16,13 @@
             <div :class="{ focus: optionIndex === key && !item.name }">
               <magic-select :focus="() => (optionIndex = key)" :inputable="true" :options="defaultOptions"
                             :select="value => onSelect(value, key)"
-                            :value.sync="item.name" style="width: 100%"/>
+                            v-model:value="item.name" style="width: 100%"/>
             </div>
             <div>
-              <magic-input :focus="() => (optionIndex = key)" :value.sync="item.value" style="width: 100%"/>
+              <magic-input :focus="() => (optionIndex = key)" v-model:value="item.value" style="width: 100%"/>
             </div>
             <div>
-              <magic-input :focus="() => (optionIndex = key)" :value.sync="item.description" style="width: 100%"/>
+              <magic-input :focus="() => (optionIndex = key)" v-model:value="item.description" style="width: 100%"/>
             </div>
           </div>
         </div>

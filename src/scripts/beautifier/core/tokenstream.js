@@ -75,4 +75,4 @@ TokenStream.prototype.add = function(token) {
   this.__tokens_length += 1;
 };
 
-module.exports.TokenStream = TokenStream;
+export { TokenStream };

@@ -1,5 +1,5 @@
 import request from "@/api/request";
-const Beautifier = require('./beautifier/javascript/beautifier').Beautifier
+import { Beautifier } from './beautifier/javascript/beautifier.js';
 const replaceURL = (url) => url.replace(/:?\/+/g, e => e.indexOf(':') > -1 ? e : '/');
 const isVisible = (elem) => elem && !!(elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length);
 const formatJson = (val, defaultVal) => {

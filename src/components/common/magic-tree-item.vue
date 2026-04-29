@@ -6,7 +6,7 @@
     <div v-show="item.opened" class="ma-tree-sub-items">
       <magic-tree-item v-for="(subItem, index) in data" :key="'ma_tree_item_' +index" :data="subItem.children"
                        :item="subItem">
-        <template v-for="(value, key) in $scopedSlots" v-slot:[key]="{ item }">
+        <template v-for="(_, key) in $slots" v-slot:[key]="{ item }">
           <slot :item="item" :name="key"></slot>
         </template>
       </magic-tree-item>

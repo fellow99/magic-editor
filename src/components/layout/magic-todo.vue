@@ -38,7 +38,7 @@
 <script>
 import request from '@/api/request.js'
 import bus from '@/scripts/bus.js'
-import MagicTextIcon from "@/components/common/magic-text-icon";
+import MagicTextIcon from "@/components/common/magic-text-icon.vue";
 export default {
   name: 'MagicTodo',
   components: {MagicTextIcon},

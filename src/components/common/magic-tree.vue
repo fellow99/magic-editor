@@ -3,9 +3,9 @@
     <!-- 解决子组件不强制刷新 -->
     <div v-show="forceUpdate"></div>
     <div v-show="!showLoading">
-      <template v-for="item in data">
-        <magic-tree-item :key="'tree_' + item.id" :data="item.children" :item="item">
-          <template v-for="(value, key) in $scopedSlots" v-slot:[key]="{ item }">
+      <template v-for="item in data" :key="'tree_' + item.id">
+        <magic-tree-item :data="item.children" :item="item">
+          <template v-for="(_, key) in $slots" v-slot:[key]="{ item }">
             <slot :item="item" :name="key"></slot>
           </template>
         </magic-tree-item>
