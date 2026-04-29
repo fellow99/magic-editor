@@ -1,6 +1,6 @@
 {
   "name": "@fellow99/magic-editor",
-  "version": "1.7.5",
+  "version": "3.0.0",
   "private": false,
   "publishConfig": {
     "access": "public",
