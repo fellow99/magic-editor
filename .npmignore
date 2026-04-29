@@ -1,0 +1,45 @@
+.DS_Store
+node_modules
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+
+# 项目目录
+# /src #要不要发布源代码
+/dist
+/public
+/demo
+/test
+/.vuepress
+
+
+# 各种配置文件
+/*.config.js
+package-lock.json
+yarn.lock
+.yarnrc
+.eslintrc.js
+.eslintignore
+.browserslistrc
+jsconfig.json
+tsconfig.json
+
+# 其它忽略

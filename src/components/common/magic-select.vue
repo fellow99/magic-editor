@@ -1,8 +1,8 @@
 <template>
   <div :class="{ inputable, border}" class="ma-select not-select" @click.stop="showList" ref="container">
     <span v-if="!inputable">{{ showText }}</span>
-    <input v-if="inputable" ref="input" :value="showText" autocomplete="off" type="text" @input="(e) => triggerSelect(e.target.value)"/>
-    <ul v-show="visible" :style="{ width, marginTop}" ref="selectList">
+    <input v-if="inputable" ref="input" :value="showText" autocomplete="off" type="text" @input="(e) => triggerSelect(e.target.value)" :placeholder="placeholder"/>
+    <ul v-show="visible" :style="{ width, marginTop, marginLeft}" ref="selectList">
       <li v-for="item in options" :key="'ma_select_' + item.value" @click.stop="triggerSelect(item.value)">
         {{ item.text }}
       </li>
@@ -15,6 +15,7 @@ export default {
   name: 'MagicSelect',
   props: {
     value: String,
+    placeholder: String,
     defaultValue: String,
     options: Array,
     border: {
@@ -32,6 +33,7 @@ export default {
       marginTop: '-2px',
       width: 'auto',
       visible: false,
+      marginLeft: '0px'
     }
   },
   mounted() {
@@ -39,8 +41,10 @@ export default {
   },
   methods: {
     showList(){
+      this.marginTop = - this.getMarginTop(this.$refs.container, 0) - 1 + 'px';
       this.visible = true;
       this.$nextTick(()=>{
+        this.marginLeft = -(window.pageXOffset + 1) + 'px';
         this.width = this.$refs.container.clientWidth + 'px';
         let height = this.$refs.selectList.offsetHeight;
         let top = this.$refs.selectList.offsetTop;
@@ -48,6 +52,10 @@ export default {
           this.marginTop = -(height + this.$refs.container.offsetHeight) + 'px'
         }
       })
+    },
+    getMarginTop(el, top) {
+      top += el.scrollTop > 0 ? el.scrollTop : el.parentElement ? this.getMarginTop(el.parentElement, top + el.scrollTop) : el.scrollTop
+      return top
     },
     triggerSelect(value) {
       this.$emit('update:value', value);
@@ -85,13 +93,12 @@ export default {
   font-size: 12px;
 }
 
-.ma-select.border {
-  border: 1px solid var(--input-border-color);
-}
-
 .ma-select.inputable {
   background: var(--select-inputable-background);
   border-color: var(--select-inputable-border);
+}
+.ma-select.border {
+  border: 1px solid var(--input-border-color);
 }
 
 .ma-select input {
@@ -142,6 +149,9 @@ ul li {
   padding: 0 5px;
   text-align: left;
   width: 100% !important;
+  height: 22px;
+  text-overflow: ellipsis;
+  word-break: keep-all;
 }
 
 ul li:hover {

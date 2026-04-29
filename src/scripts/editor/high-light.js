@@ -1,52 +1,54 @@
 export const HighLightOptions = {
     escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
-    builtinFunctions: [
-        "count", "max", "min", "avg", "sum",
-        "round", "ceil", "floor", "precent",
-        "date_format", "ifnull", "now", "uuid"
-    ],
-    digits: /\d+(_+\d+)*/,
+    builtinFunctions: [],
+    digits: /[0-9_]+/,
+    binarydigits: /[0-1_]+/,
+    hexdigits: /[[0-9a-fA-F_]+/,
     regexpctl: /[(){}\[\]\$\^|\-*+?\.]/,
     regexpesc: /\\(?:[bBdDfnrstvwWn0\\\/]|@regexpctl|c[A-Z]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})/,
     tokenizer: {
         root: [
             [/\s+/, 'white'],
-            [
-                /```((?:\w|[\/\-#])+).*$/,
-                { token: 'string', next: '@codeblockgh', nextEmbedded: '$1' }
-            ],
             [/```$/, { token: 'string', next: '@codeblock' }],
             [/[a-zA-Z_$][\w$]*[\s]?/, {
                 cases: {
                     '@builtinFunctions': 'predefined',
-                    "~(new|var|if|else|for|in|return|import|break|continue|as|null|true|false|try|catch|finally|async|while|exit|asc|desc|ASC|DESC)[\\s]?": {token: "keywords"},
-                    "~(select|from|left|join|on|and|or|order|by|where|group|having|SELECT|FROM|LEFT|JOIN|ON|AND|OR|ORDER|BY|WHERE|GROUP|HAVING)[\\s]{1}": {token: "keywords"},
+                    "~(new|var|if|else|for|in|return|import|break|continue|as|null|true|false|try|catch|finally|async|while|exit|asc|desc|ASC|DESC|assert|let|const|throw)[\\s]?": {token: "keywords"},
+                    "~(select|from|left|join|on|and|or|order|by|where|group|having|limit|offset|SELECT|FROM|LEFT|JOIN|ON|AND|OR|ORDER|BY|WHERE|GROUP|HAVING|LIMIT|OFFSET)[\\s]{1}": {token: "keywords"},
                     "@default": "identifier"
                 }
             }],
             [/::[a-zA-Z]+/, 'keywords'],
             [/[{}()[\]]/, '@brackets'],
+            [/(@digits)\.(@digits)/, 'number.float'],
+            [/0[xX](@hexdigits)n?/, 'number.hex'],
+            [/0[bB](@binarydigits)n?/, 'number.binary'],
             [/(@digits)[lLbBsSdDfFmM]?/, 'number'],
-            [/\/\*\*(?!\/)/, 'comment.doc', '@mulcomment'],
-            [/\/\*/, 'comment', '@comment'],
-            [/\/\/.*$/, 'comment'],
+            [/\/\*\**/, 'comment', '@comment'],
+            [/\/\//, 'comment', '@commentTodo'],
             [
                 /\/(?=([^\\\/]|\\.)+\/([gimsuy]*)(\s*)(\.|;|,|\)|\]|\}|$))/,
                 {token: 'regexp', bracket: '@open', next: '@regexp'}
             ],
             [/[;,.]/, 'delimiter'],
-            [/"""/, {token: 'string', next: '@string_multi_embedded', nextEmbedded: 'sql'}],
+            [/"""/, {token: 'string', next: '@string_multi_embedded', nextEmbedded: 'mybatis'}],
             [/"([^"\\]|\\.)*$/, 'string.invalid'],
             [/'([^'\\]|\\.)*$/, 'string.invalid'],
             [/"/, 'string', '@string_double'],
             [/'/, 'string', '@string_single'],
+            [/`/, 'string', '@string_backtick']
         ],
         comment: [
-            [/[^/*]+/, 'comment'],
-            // [/\/\*/, 'comment', '@push' ],    // nested comment not allowed :-(
-            // [/\/\*/,    'comment.invalid' ],    // this breaks block comments in the shape of /* //*/
-            [/\*\//, 'comment', '@pop'],
-            [/[/*]/, 'comment']
+            [/\*\//, 'comment', '@popall'],
+            [/\S((TODO)|(todo)|(fixme)|(FIXME))\s+/, 'comment'],
+            [/((TODO)|(todo)|(fixme)|(FIXME))\s+[^(*/)]+/, 'comment.todo'],
+            [/\S/, 'comment'],
+        ],
+        commentTodo: [
+            [/^/,'', '@popall'],
+            [/\S((TODO)|(todo)|(fixme)|(FIXME))\s+/, 'comment'],
+            [/((TODO)|(todo)|(fixme)|(FIXME))[ \t]+[^\n]+/, 'comment.todo','@popall'],
+            [/\S/, 'comment'],
         ],
         regexp: [
             [
@@ -72,10 +74,6 @@ export const HighLightOptions = {
             [/^```$/, { token: 'string', next: '@pop' }],
             [/.*$/, 'variable.source']
         ],
-        codeblockgh: [
-            [/```\s*$/, { token: 'variable.source', next: '@pop', nextEmbedded: '@pop' }],
-            [/[^`]+/, 'variable.source']
-        ],
         regexrange: [
             [/-/, 'regexp.escape.control'],
             [/\^/, 'regexp.invalid'],
@@ -89,13 +87,6 @@ export const HighLightOptions = {
                     bracket: '@close'
                 }
             ]
-        ],
-        mulcomment: [
-            [/[^/*]+/, 'comment.doc'],
-            // [/\/\*/, 'comment.doc', '@push' ],    // nested comment not allowed :-(
-            [/\/\*/, 'comment.doc.invalid'],
-            [/\*\//, 'comment.doc', '@pop'],
-            [/[/*]/, 'comment.doc']
         ],
         string_multi_embedded: [
             [/[^"]+/, ''],
@@ -114,5 +105,17 @@ export const HighLightOptions = {
             [/\\./, 'string.escape.invalid'],
             [/'/, 'string', '@pop']
         ],
+        string_backtick: [
+            [/\$\{/, { token: 'delimiter.bracket', next: '@bracketCounting' }],
+            [/[^\\`$]+/, 'string'],
+            [/@escapes/, 'string.escape'],
+            [/\\./, 'string.escape.invalid'],
+            [/`/, 'string', '@pop']
+        ],
+        bracketCounting: [
+            [/\{/, 'delimiter.bracket', '@bracketCounting'],
+            [/\}/, 'delimiter.bracket', '@pop'],
+            { include: 'root' }
+        ]
     }
 };

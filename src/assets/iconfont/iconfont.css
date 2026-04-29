@@ -1,14 +1,78 @@
 @font-face {
-    font-family: 'magic-iconfont';
-    src: url('iconfont.ttf?t=1607593923233') format('truetype'); /* chrome, firefox, opera, Safari, Android, iOS 4.2+ */
+  font-family: "magic-iconfont"; /* Project id 1928593 */
+  src: url('iconfont.ttf?t=1628077606269') format('truetype');
 }
 
 .ma-icon {
-    font-family: 'magic-iconfont' !important;
-    font-size: 16px;
-    font-style: normal;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  font-family: "magic-iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ma-icon-lock:before {
+  content: "\e64f";
+}
+
+.ma-icon-unlock:before {
+  content: "\e783";
+}
+
+.ma-icon-collapse:before {
+  content: "\e609";
+}
+
+.ma-icon-expand:before {
+  content: "\efad";
+}
+
+.ma-icon-mysql:before {
+  content: "\e61e";
+}
+
+.ma-icon-postgresql:before {
+  content: "\e603";
+}
+
+.ma-icon-oracle:before {
+  content: "\e7c8";
+}
+
+.ma-icon-event:before {
+  content: "\e664";
+}
+
+.ma-icon-sql-server:before {
+  content: "\e605";
+}
+
+.ma-icon-clickhouse:before {
+  content: "\ec35";
+}
+
+.ma-icon-todo:before {
+  content: "\e602";
+}
+
+.ma-icon-push:before {
+  content: "\e79d";
+}
+
+.ma-icon-copy:before {
+  content: "\ec7a";
+}
+
+.ma-icon-move:before {
+  content: "\e727";
+}
+
+.ma-icon-update:before {
+  content: "\e7e4";
+}
+
+.ma-icon-logout:before {
+  content: "\e65a";
 }
 
 .ma-icon-datasource:before {
@@ -26,6 +90,7 @@
 .ma-icon-download:before {
   content: "\e659";
 }
+
 .ma-icon-http-api:before {
   content: "\e6e3";
 }
@@ -38,7 +103,7 @@
   content: "\e608";
 }
 
-.ma-icon-shuaxin:before {
+.ma-icon-refresh:before {
   content: "\e747";
 }
 
@@ -50,7 +115,7 @@
   content: "\e7a8";
 }
 
-.ma-icon-tianjiawenjianjia:before {
+.ma-icon-group-add:before {
   content: "\e6cd";
 }
 
@@ -178,3 +243,6 @@
   content: "\e6e9";
 }
 
+.ma-icon-position:before {
+  content: "\e60b";
+}

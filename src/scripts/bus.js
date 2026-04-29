@@ -1,14 +1,12 @@
 import Vue from 'vue'
 import contants from './contants.js'
-
+import {formatDate} from "@/scripts/utils.js";
+const statusLog = [];
 const bus = new Vue()
 try {
-    window._mtac = {};
     let element = document.createElement("script");
-    element.src = "//pingjs.qq.com/h5/stats.js?v2.0.4";
-    element.setAttribute("name", "MTAH5");
-    element.setAttribute("sid", "500724136");
-    element.setAttribute("cid", "500724141");
+    element.src = "https://s4.cnzz.com/z_stat.php?id=1280031557&web_id=1280031557";
+    element.setAttribute('async', true);
     let s = document.getElementsByTagName("script")[0];
     s.parentNode.insertBefore(element, s);
     element.onload = element.onreadystatechange = function () {
@@ -21,9 +19,17 @@ try {
 }
 bus.$on('report', (eventId) => {
     try {
-        window.MtaH5.clickStat(eventId);
+        window._czc.push(["_trackEvent",eventId,eventId])
     } catch (ignored) {
 
     }
 })
+bus.$on('status', (content) => {
+    statusLog.push({
+        timestamp: formatDate(new Date()),
+        content
+    })
+})
+bus.$getStatusLog = () => statusLog;
+bus.$clearStatusLog = () => statusLog.length = 0
 export default bus 

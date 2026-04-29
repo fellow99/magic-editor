@@ -8,11 +8,15 @@
       <button class="ma-button" @click="doSave">保存</button>
     </div>
     <div class="ma-request-parameters">
-      <ul class="not-select">
+      <ul class="not-select ma-nav-tab">
         <li v-for="(item, key) in navs" :key="key" :class="{ selected: showIndex === key }" @click="showIndex = key;">{{ item }}
         </li>
       </ul>
       <div class="ma-layout">
+        <div class="not-select ma-sider">
+          <div @click="addRow"><i class="ma-icon ma-icon-plus"/></div>
+          <div @click="removeRow"><i class="ma-icon ma-icon-minus"/></div>
+        </div>
         <div v-show="showIndex === 0" class="ma-layout-container">
           <div class="ma-header ma-table-row ma-table-request-row">
             <div style="flex: 1">Key</div>
@@ -54,9 +58,9 @@
         </div>
         <div v-show="showIndex === 1" class="ma-layout-container">
           <div class="ma-header ma-table-row">
-            <div>Key</div>
-            <div>Value</div>
-            <div>Description</div>
+            <div>键</div>
+            <div>值</div>
+            <div>描述</div>
           </div>
           <div class="ma-content">
             <div v-for="(item, key) in info.options" :key="key" class="ma-table-row">
@@ -76,10 +80,6 @@
             </div>
           </div>
         </div>
-        <div class="not-select ma-sider">
-          <div @click="addRow"><i class="ma-icon ma-icon-plus"/></div>
-          <div @click="removeRow"><i class="ma-icon ma-icon-minus"/></div>
-        </div>
       </div>
     </div>
   </div>
@@ -88,8 +88,10 @@
 <script>
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicSelect from '@/components/common/magic-select.vue'
-import request from "@/api/request";
-import bus from "@/scripts/bus";
+import request from "@/api/request"
+import { requestGroup } from '@/scripts/utils.js'
+import bus from "@/scripts/bus"
+import contants from "@/scripts/contants.js"
 
 export default {
   name: 'MagicGroup',
@@ -127,7 +129,9 @@ export default {
   mounted() {
     let map = {}
     request.send('/options').success(data => {
-      this.defaultOptions = data.map(e => {
+      data = data || []
+      data = data.concat(contants.OPTIONS)
+      this.defaultOptions = data&&data.map(e => {
         let item = {text: e[0], value: e[0], description: e[1], defaultValue: e[2]}
         this.optionsMap[item.value] = item;
         return item;
@@ -159,16 +163,11 @@ export default {
       let saveObj = {...this.info}
       saveObj.paths =  saveObj.paths.filter(it => it.name)
       saveObj.options =  saveObj.options.filter(it => it.name)
-      request.send('group/update', JSON.stringify(saveObj), {
-        method: 'post',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        transformRequest: []
-      }).success(data => {
+      bus.$emit('status', `准备保存分组「${saveObj.name}」`)
+      requestGroup('group/update', saveObj).success(data => {
         bus.$emit('update-group')
         bus.$emit('report', 'group_update')
-        bus.$emit('status', '保存分组成功!')
+        bus.$emit('status', `保存分组「${saveObj.name}」成功!`)
       })
     },
     addRow() {

@@ -1,5 +1,7 @@
 import request from '@/api/request.js'
 import contants from '@/scripts/contants.js'
+import {HighLightOptions} from '@/scripts/editor/high-light.js'
+import * as monaco from "monaco-editor";
 
 let scriptClass = {}
 let extensions = {}
@@ -43,9 +45,9 @@ const getSimpleClass = (target) => {
     return target;
 }
 const matchTypes = (parameters, args, extension) => {
-    if(parameters.length > 0 && parameters[parameters.length - 1].varArgs){
+    if (parameters.length > 0 && parameters[parameters.length - 1].varArgs) {
         return extension ? parameters.length - 1 <= args.length : parameters.length <= args.length;
-    }else{
+    } else {
         return extension ? parameters.length - 1 === args.length : parameters.length === args.length;
     }
 }
@@ -55,6 +57,8 @@ const initClasses = function () {
             scriptClass = data.classes || {}
             extensions = data.extensions || {}
             functions = data.functions || []
+            HighLightOptions.builtinFunctions = functions.map(it => it.name);
+            monaco.languages.setMonarchTokensProvider('magicscript', HighLightOptions);
             resolve()
         }).exception(res => {
             reject()
@@ -69,7 +73,16 @@ const initImportClass = () => {
             url: 'classes.txt',
             responseType: 'text'
         }).then(e => {
-            importClass = e.data.split('\r\n')
+            const array = [];
+            e.data.split('\n').forEach(item => {
+                const tmp = item.split(':')
+                if (tmp.length === 1) {
+                    array.push(tmp[0])
+                } else {
+                    array.push(...tmp[1].split(',').map(it => tmp[0] + "." + it))
+                }
+            })
+            importClass = array
             resolve()
         }).catch(res => {
             reject()
@@ -97,14 +110,14 @@ const processMethod = (method, begin, sort) => {
         for (let j = begin; j < method.parameters.length; j++) {
             params.push('${' + (j + 1 - begin) + ':' + method.parameters[j].name + '}');
             if (method.parameters[j].varArgs) {
-                params2.push(getSimpleClass(method.parameters[j].type).replace('[]','') + " ... " + method.parameters[j].name);
+                params2.push(getSimpleClass(method.parameters[j].type).replace('[]', '') + " ... " + method.parameters[j].name);
             } else {
                 params2.push(getSimpleClass(method.parameters[j].type) + " " + method.parameters[j].name);
             }
         }
-        if (!method.comment) {
-            method.comment = getSimpleClass(method.returnType) + ':' + method.name + '(' + params2.join(',') + ')';
-        }
+        // if (!method.comment) {
+        //     method.comment = getSimpleClass(method.returnType) + '.' + method.name + '(' + params2.join(', ') + ')';
+        // }
         method.sortText = padding(sort, 10) + method.name;
         method.fullName = method.name + '(' + params2.join(', ') + ')';
         method.insertText += '(' + params.join(',') + ')';
@@ -113,9 +126,9 @@ const processMethod = (method, begin, sort) => {
         method.sortText = padding(sort, 10) + method.name;
         method.insertText += '()';
         method.fullName = method.name + '()';
-        if (!method.comment) {
-            method.comment = getSimpleClass(method.returnType) + ':' + method.name + '()';
-        }
+        // if (!method.comment) {
+        //     method.comment = getSimpleClass(method.returnType) + '.' + method.name + '()';
+        // }
         method.signature = method.name;
     }
     return method;
@@ -179,11 +192,19 @@ const findMethods = (clazz, sort) => {
 const getExtension = (clazz) => {
     return extensions[clazz]
 }
-
-async function loadClass(className) {
+const findClass = (className) => {
     if (!className) {
         throw new Error('className is required');
     }
+    let value = scriptClass[className]
+    if (!value) {
+        let index = importClass.findIndex(it => it === className)
+        value = importClass[index]
+    }
+    return value
+}
+
+async function loadClass(className) {
     let val = scriptClass[className];
     if (!val) {
         try {
@@ -242,12 +263,24 @@ const setupOnlineFunction = (loader) => {
 const getOnlineFunction = (path) => {
     return onlineFunctionFinder && onlineFunctionFinder(path);
 }
+const getDefineModules = () => Object.keys(scriptClass).filter(it => scriptClass[it].module)
+let apiFinder;
+const setApiFinder = (finder) => {
+    apiFinder = finder;
+}
+let functionFinder;
+const setFunctionFinder = (finder) => {
+    functionFinder = finder;
+}
+const getApiFinder = () => apiFinder
+const getFunctionFinder = () => functionFinder
 const exportValue = {
     findEnums,
     findAttributes,
     findMethods,
     findFunction,
     loadClass,
+    findClass,
     initClasses,
     initImportClass,
     getWrapperClass,
@@ -259,5 +292,13 @@ const exportValue = {
     getOnlineFunction,
     setupOnlineFunction,
     setExtensionAttribute,
+    getSimpleClass,
+    getDefineModules,
+    setApiFinder,
+    setFunctionFinder,
+    getApiFinder,
+    getFunctionFinder,
+
+
 }
 export default exportValue;

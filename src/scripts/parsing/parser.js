@@ -1,6 +1,8 @@
-import {ParseException, Span, TokenType} from './index.js'
+import { ParseException, Span, TokenStream, TokenType} from './index.js'
+import tokenizer from './tokenizer.js'
 import JavaClass from '../editor/java-class.js'
 import {
+    Assert,
     AsyncCall,
     BinaryOperation,
     Break,
@@ -12,6 +14,7 @@ import {
     IfStatement,
     Import,
     LambdaFunction,
+    LanguageExpression,
     LinqField,
     LinqJoin,
     LinqOrder,
@@ -32,29 +35,40 @@ import {
     VariableAccess,
     WhileStatement,
     WholeLiteral,
-    LanguageExpression
+    Throw
 } from './ast.js'
+import RequestParameter from "@/scripts/editor/request-parameter";
 
-export const keywords = ["import", "as", "var", "return", "break", "continue", "if", "for", "in", "new", "true", "false", "null", "else", "try", "catch", "finally", "async", "while"];
-export const linqKeywords = ["from", "join", "left", "group", "by", "as", "having", "and", "or", "in", "where", "on"];
+export const keywords = ["import", "as", "var", "let", "const", "return", "break", "continue", "if", "for", "in", "new", "true", "false", "null", "else", "try", "catch", "finally", "async", "while", "exit", "and", "or", "throw"/*"assert"*/];
+export const linqKeywords = ["from", "join", "left", "group", "by", "as", "having", "and", "or", "in", "where", "on", "limit", "offset"];
 const binaryOperatorPrecedence = [
     [TokenType.Assignment],
-    [TokenType.PlusEqual, TokenType.MinusEqual, TokenType.AsteriskEqual, TokenType.ForwardSlashEqual, TokenType.PercentEqual],
-    [TokenType.Or, TokenType.And, TokenType.SqlOr, TokenType.SqlAnd, TokenType.Xor],
+    [TokenType.RShift2Equal, TokenType.RShiftEqual, TokenType.LShiftEqual, TokenType.XorEqual, TokenType.BitOrEqual, TokenType.BitAndEqual, TokenType.PercentEqual, TokenType.ForwardSlashEqual, TokenType.AsteriskEqual, TokenType.MinusEqual, TokenType.PlusEqual],
+    [TokenType.Or, TokenType.SqlOr],
+    [TokenType.And, TokenType.SqlAnd],
+    [TokenType.BitOr],
+    [TokenType.Xor],
+    [TokenType.BitAnd],
     [TokenType.EqualEqualEqual, TokenType.Equal, TokenType.NotEqualEqual, TokenType.NotEqual, TokenType.SqlNotEqual],
     [TokenType.Less, TokenType.LessEqual, TokenType.Greater, TokenType.GreaterEqual],
     [TokenType.Plus, TokenType.Minus],
-    [TokenType.ForwardSlash, TokenType.Asterisk, TokenType.Percentage]
+    [TokenType.LShift, TokenType.RShift, TokenType.RShift2],
+    [TokenType.Asterisk, TokenType.ForwardSlash, TokenType.Percentage]
 ];
 const linqBinaryOperatorPrecedence = [
-    [TokenType.PlusEqual, TokenType.MinusEqual, TokenType.AsteriskEqual, TokenType.ForwardSlashEqual, TokenType.PercentEqual],
-    [TokenType.Or, TokenType.And, TokenType.SqlOr, TokenType.SqlAnd, TokenType.Xor],
+    [TokenType.RShift2Equal, TokenType.RShiftEqual, TokenType.LShiftEqual, TokenType.XorEqual, TokenType.BitOrEqual, TokenType.BitAndEqual, TokenType.PercentEqual, TokenType.ForwardSlashEqual, TokenType.AsteriskEqual, TokenType.MinusEqual, TokenType.PlusEqual],
+    [TokenType.Or, TokenType.SqlOr],
+    [TokenType.And, TokenType.SqlAnd],
+    [TokenType.BitOr],
+    [TokenType.Xor],
+    [TokenType.BitAnd],
     [TokenType.Assignment, TokenType.EqualEqualEqual, TokenType.Equal, TokenType.NotEqualEqual, TokenType.Equal, TokenType.NotEqual, TokenType.SqlNotEqual],
     [TokenType.Less, TokenType.LessEqual, TokenType.Greater, TokenType.GreaterEqual],
     [TokenType.Plus, TokenType.Minus],
-    [TokenType.ForwardSlash, TokenType.Asterisk, TokenType.Percentage]
+    [TokenType.LShift, TokenType.RShift, TokenType.RShift2],
+    [TokenType.Asterisk, TokenType.ForwardSlash, TokenType.Percentage]
 ]
-const unaryOperators = [TokenType.Not, TokenType.PlusPlus, TokenType.MinusMinus, TokenType.Plus, TokenType.Minus];
+const unaryOperators = [TokenType.MinusMinus, TokenType.PlusPlus, TokenType.BitNot, TokenType.Minus, TokenType.Plus, TokenType.Not];
 
 export class Parser {
     constructor(stream) {
@@ -73,12 +87,35 @@ export class Parser {
                 }
             }
         } catch (e) {
+            //console.error(e)
             if (ignoreError !== true) {
                 throw e;
             }
-            //console.error(e)
         }
         return nodes;
+    }
+
+    async parseBest(position){
+        let nodes = this.parse()
+        let env = await this.processEnv(nodes)
+        return {
+            best: this.findBestMatch(nodes[nodes.length - 1], position),
+            env
+        }
+    }
+
+    async processEnv(nodes){
+        let nodeLen = nodes.length
+        let env = {
+            ...RequestParameter.environmentFunction(),
+            ...JavaClass.getAutoImportClass(),
+            ...JavaClass.getAutoImportModule(),
+            '@import': []
+        }
+        for (let i = 0; i < nodeLen; i++) {
+            await nodes[i].getJavaType(env)
+        }
+        return env
     }
 
     validateNode(node) {
@@ -91,7 +128,7 @@ export class Parser {
         let result = null;
         if (this.stream.match("import", false)) {
             result = this.parseImport();
-        } else if (this.stream.match("var", false)) {
+        } else if (this.matchVarDefine()) {
             result = this.parseVarDefine();
         } else if (this.stream.match("if", false)) {
             result = this.parseIfStatement();
@@ -111,8 +148,20 @@ export class Parser {
             result = new Break(this.stream.consume().getSpan());
         } else if (this.stream.match("exit", false)) {
             result = this.parseExit();
+        } else if (this.stream.match("throw", false)) {
+            result = this.parseThrow();
+        } else if (this.stream.match("assert", false)) {
+            result = this.parseAssert();
         } else {
-            result = this.parseExpression(expectRightCurly);
+            let index = this.stream.makeIndex();
+            if (this.matchTypeDefine()) {
+                this.stream.resetIndex(index);
+                result = this.parseVarDefine();
+            }
+            if (result == null) {
+                this.stream.resetIndex(index);
+                result = this.parseExpression(expectRightCurly);
+            }
         }
         while (this.stream.match(";", true)) {
 
@@ -120,29 +169,24 @@ export class Parser {
         return result;
     }
 
-    parseConverterOrAccessOrCall(expression) {
-        while (this.stream.match([TokenType.Period, TokenType.QuestionPeriod, TokenType.ColonColon], false)) {
-            if (this.stream.match(TokenType.ColonColon, false)) {
-                let open = this.stream.consume().getSpan();
-                let args = [];
-                let identifier = this.stream.expect(TokenType.Identifier);
-                let closing = identifier.getSpan();
-                if (this.stream.match(TokenType.LeftParantheses, false)) {
-                    args = this.parseArguments();
-                    closing = this.stream.expect(TokenType.RightParantheses).getSpan();
-                }
-                expression = new ClassConverter(new Span(open, closing), identifier.getText(), expression, args);
-            } else {
-                expression = this.parseAccessOrCall(stream, expression);
-            }
-        }
-        return expression;
+    matchTypeDefine() {
+        return this.stream.match(TokenType.Identifier, true) && this.stream.match(TokenType.Identifier, false);
+    }
+
+    matchVarDefine() {
+        return this.stream.match(["var", "let", "const"], false);
     }
 
     checkKeyword(span) {
         if (keywords.indexOf(span.getText()) > -1) {
             throw new ParseException('变量名不能定义为关键字', span);
         }
+    }
+
+    parseThrow() {
+        let opening = this.stream.consume().getSpan();
+        let expression = this.parseExpression();
+        return new Throw(new Span(opening, this.stream.getPrev().getSpan()), expression);
     }
 
     parseExit() {
@@ -154,23 +198,71 @@ export class Parser {
         return new Exit(new Span(opening, this.stream.getPrev().getSpan()), expressionList);
     }
 
+    parseAssert() {
+        let index = this.stream.makeIndex()
+        try {
+            let opening = this.stream.expect("assert").getSpan();
+            let condition = this.parseExpression();
+            this.stream.expect(TokenType.Colon);
+            let expressionList = [];
+            do {
+                expressionList.push(this.parseExpression());
+            } while (this.stream.match(TokenType.Comma, true));
+            return new Assert(new Span(opening, this.stream.getPrev().getSpan()), condition, expressionList);
+        } catch (e) {
+            this.stream.resetIndex(index)
+            return this.parseExpression();
+        }
+    }
+
     parseImport() {
         let opening = this.stream.expect("import").getSpan();
         if (this.stream.hasMore()) {
             let expected = this.stream.consume();
-            let varName;
-            let module = expected.getTokenType() === TokenType.Identifier
-            if (expected.getTokenType() === TokenType.StringLiteral || module) {
-                if (expected.getTokenType() === TokenType.StringLiteral) {
-                    if (this.stream.match("as", true)) {
-                        varName = this.stream.expect(TokenType.Identifier);
-                        this.checkKeyword(varName.getSpan());
+            let packageName = null;
+            let isStringLiteral = expected.getTokenType() === TokenType.StringLiteral
+            if (isStringLiteral) {
+                packageName = this.createStringLiteral(expected).getValue();
+            } else if (expected.type === TokenType.Identifier) {
+                let startSpan = expected.getSpan();
+                let endSpan = null;
+                packageName = startSpan.getText();
+                while (this.stream.match(TokenType.Period, true)){
+                    isStringLiteral = true;
+                    if(this.stream.match(TokenType.Asterisk, false)){
+                        expected = this.stream.consume()
+                        break;
                     }
+                    expected = this.stream.expect(TokenType.Identifier)
                 }
-                return new Import(new Span(opening, expected.getSpan()), expected.getSpan(), module);
+                if(isStringLiteral){
+                    endSpan = expected.getSpan();
+                    packageName = new Span(startSpan, endSpan).getText();
+                }
             } else {
                 throw new ParseException("Expected identifier or string, but got stream is " + expected.getTokenType().error, this.stream.getPrev().getSpan());
             }
+
+            let varName = packageName;
+            if (isStringLiteral) {
+                if (this.stream.match("as", true)) {
+                    expected = this.stream.expect(TokenType.Identifier);
+                    this.checkKeyword(expected.getSpan());
+                    varName = expected.getSpan().getText();
+                } else {
+                    let temp = packageName;
+                    if (!temp.startsWith("@")) {
+                        let index = temp.lastIndexOf(".");
+                        if (index != -1) {
+                            temp = temp.substring(index + 1);
+                        }
+                    } else {
+                        throw new ParseException("Expected as", this.stream.getPrev().getSpan());
+                    }
+                    varName = temp;
+                }
+            }
+            return new Import(new Span(opening, expected.getSpan()), packageName, varName, !isStringLiteral);
         }
         throw new ParseException("Expected identifier or string, but got stream is EOF", this.stream.getPrev().getSpan());
     }
@@ -185,10 +277,7 @@ export class Parser {
     parseAsync() {
         let opening = this.stream.expect("async").getSpan();
         let expression = this.parseExpression();
-        if (expression instanceof MethodCall || expression instanceof FunctionCall || expression instanceof LambdaFunction) {
-            return new AsyncCall(new Span(opening, this.stream.getPrev().getSpan()), expression);
-        }
-        throw new ParseException("Expected MethodCall or FunctionCall or LambdaFunction", this.stream.getPrev().getSpan())
+        return new AsyncCall(new Span(opening, this.stream.getPrev().getSpan()), expression);
     }
 
     parseIfStatement() {
@@ -215,10 +304,15 @@ export class Parser {
     }
 
     parseNewExpression(opening) {
-        let identifier = this.stream.expect(TokenType.Identifier);
-        let args = this.parseArguments();
-        let closing = this.stream.expect(")").getSpan();
-        return this.parseConverterOrAccessOrCall(new NewStatement(new Span(opening, closing), identifier.getText(), args));
+        let expression = this.parseAccessOrCall(TokenType.Identifier, true);
+        let span = new Span(opening.getSource(), opening.getStart(), this.stream.getPrev().getSpan().getEnd())
+        if (expression instanceof MethodCall) {
+            return this.parseAccessOrCall(new NewStatement(span, expression.getMethod(), expression.getArguments()));
+        } else if (expression instanceof FunctionCall) {
+            return this.parseAccessOrCall(new NewStatement(span, expression.getFunction(), expression.getArguments()));
+        }
+        return this.parseAccessOrCall(new NewStatement(span, expression, []));
+        // throw new ParseException("Expected MethodCall or FunctionCall or LambdaFunction", this.stream.getPrev().getSpan());
     }
 
     parseArguments() {
@@ -250,17 +344,51 @@ export class Parser {
     }
 
     parseVarDefine() {
-        let opening = this.stream.expect("var").getSpan();
+        let opening = this.stream.consume().getSpan();
         let token = this.stream.expect(TokenType.Identifier);
         this.checkKeyword(token.getSpan());
+        let varDefine;
         if (this.stream.match(TokenType.Assignment, true)) {
-            return new VarDefine(new Span(opening, this.stream.getPrev().getSpan()), token.getText(), this.parseExpression());
+            varDefine = new VarDefine(new Span(opening, this.stream.getPrev().getSpan()), token.getText(), this.parseExpression(), opening.getText());
+        } else {
+            varDefine = new VarDefine(new Span(opening, this.stream.getPrev().getSpan()), token.getText(), null, opening.getText());
         }
-        return new VarDefine(new Span(opening, this.stream.getPrev().getSpan()), token.getText(), null);
+        return varDefine;
     }
 
     parseTryStatement() {
         let opening = this.stream.expect("try");
+        let tryResources = [];
+        if (this.stream.match("(", true)) {
+            if (this.stream.match(")", false)) {
+                // 空的 try-with-resource
+            } else {
+                while (!this.stream.match(")", false)) {
+                    if (this.stream.match(";", true)) {
+                        continue;
+                    }
+                    let result = null;
+                    if (this.matchVarDefine()) {
+                        result = this.parseVarDefine();
+                    } else {
+                        if (this.stream.matchAny(keywords, false)) {
+                            throw new ParseException("try 括号中只允许写赋值语句", this.stream.consume().getSpan());
+                        }
+                        let index = this.stream.makeIndex();
+                        if (this.matchTypeDefine()) {
+                            this.stream.resetIndex(index);
+                            result = this.parseVarDefine();
+                        }
+                        if (result == null) {
+                            this.stream.resetIndex(index);
+                            throw new ParseException("try 括号中只允许写赋值语句", this.stream.consume().getSpan());
+                        }
+                    }
+                    tryResources.push(result);
+                }
+            }
+            this.stream.expect(")");
+        }
         let tryBlocks = this.parseFunctionBody();
         let catchBlocks = [];
         let finallyBlocks = [];
@@ -275,7 +403,7 @@ export class Parser {
         if (this.stream.match("finally", true)) {
             finallyBlocks = finallyBlocks.concat(this.parseFunctionBody());
         }
-        return new TryStatement(new Span(opening.getSpan(), this.stream.getPrev().getSpan()), exception, tryBlocks, catchBlocks, finallyBlocks);
+        return new TryStatement(new Span(opening.getSpan(), this.stream.getPrev().getSpan()), exception, tryBlocks, tryResources, catchBlocks, finallyBlocks);
     }
 
     parseWhileStatement() {
@@ -303,7 +431,7 @@ export class Parser {
 
     expectCloseing() {
         if (!this.stream.hasMore()) {
-            throw new ParseException("Did not find closing }.", this.stream.prev().getSpan());
+            // throw new ParseException("Did not find closing }.", this.stream.prev().getSpan());
         }
         return this.stream.expect("}").getSpan();
     }
@@ -370,11 +498,8 @@ export class Parser {
                 }
                 this.stream.resetIndex(index);
                 let expression = this.parseExpression();
-                if (this.stream.match([TokenType.Period, TokenType.QuestionPeriod], false)) {
-                    expression = this.parseAccessOrCall(expression);
-                }
                 this.stream.expect(TokenType.RightParantheses);
-                return this.parseConverterOrAccessOrCall(expression);
+                return this.parseAccessOrCall(expression);
             } else {
                 let expression = this.parseAccessOrCallOrLiteral(expectRightCurly);
                 if (expression instanceof MemberAccess || expression instanceof VariableAccess || expression instanceof MapOrArrayAccess) {
@@ -420,21 +545,33 @@ export class Parser {
         return new Spread(new Span(spread.getSpan(), target.getSpan()), target);
     }
 
-    parseAccessOrCall(target) {
+    parseAccessOrCall(target, isNew) {
         if (target === TokenType.StringLiteral || target === TokenType.Identifier) {
-            let identifier = this.stream.expect(target).getSpan();
+            let token = this.stream.expect(target);
+            let identifier = token.getSpan();
             if (target === TokenType.Identifier && "new" === identifier.getText()) {
                 return this.parseNewExpression(identifier);
             }
             if (target === TokenType.Identifier && this.stream.match(TokenType.Lambda, true)) {
                 return this.parseLambdaBody(identifier, [identifier.getText()]);
             }
-            let result = target === TokenType.StringLiteral ? new Literal(identifier, 'java.lang.String') : new VariableAccess(identifier, identifier.getText());
-            return this.parseAccessOrCall(result);
+            let result = target === TokenType.StringLiteral ? this.createStringLiteral(token) : new VariableAccess(identifier, identifier.getText());
+            return this.parseAccessOrCall(result, isNew);
         } else {
-            while (this.stream.hasMore() && this.stream.match([TokenType.LeftParantheses, TokenType.LeftBracket, TokenType.Period, TokenType.QuestionPeriod], false)) {
+            while (this.stream.hasMore() && this.stream.match([TokenType.LeftParantheses, TokenType.LeftBracket, TokenType.Period, TokenType.QuestionPeriod, TokenType.ColonColon], false)) {
+                if (this.stream.match(TokenType.ColonColon, false)) {
+                    let open = this.stream.consume().getSpan();
+                    let args = [];
+                    let identifier = this.stream.expect(TokenType.Identifier);
+                    let closing = identifier.getSpan();
+                    if (this.stream.match(TokenType.LeftParantheses, false)) {
+                        args = this.parseArguments();
+                        closing = this.stream.expect(TokenType.RightParantheses).getSpan();
+                    }
+                    target = new ClassConverter(new Span(open, closing), identifier.getText(), target, args);
+                }
                 // function or method call
-                if (this.stream.match(TokenType.LeftParantheses, false)) {
+                else if (this.stream.match(TokenType.LeftParantheses, false)) {
                     let args = this.parseArguments();
                     let closingSpan = this.stream.expect(TokenType.RightParantheses).getSpan();
                     if (target instanceof VariableAccess || target instanceof MapOrArrayAccess)
@@ -443,6 +580,9 @@ export class Parser {
                         target = new MethodCall(new Span(target.getSpan(), closingSpan), target, args, this.linqLevel > 0);
                     } else {
                         throw new ParseException("Expected a variable, field or method.", this.stream.hasMore() ? this.stream.consume().getSpan() : this.stream.getPrev().getSpan());
+                    }
+                    if (isNew) {
+                        break;
                     }
                 }
 
@@ -459,7 +599,7 @@ export class Parser {
                     if (this.linqLevel > 0 && this.stream.match(TokenType.Asterisk, false)) {
                         target = new MemberAccess(target, optional, this.stream.expect(TokenType.Asterisk).getSpan(), true);
                     } else {
-                        let name = this.stream.expect([TokenType.Identifier,TokenType.SqlAnd,TokenType.SqlOr]).getSpan()
+                        let name = this.stream.expect([TokenType.Identifier, TokenType.SqlAnd, TokenType.SqlOr]).getSpan()
                         target = new MemberAccess(new Span(target.getSpan(), name), target, optional, name, false);
                     }
                 }
@@ -478,7 +618,7 @@ export class Parser {
             let key;
             if (this.stream.hasPrev()) {
                 let prev = this.stream.getPrev();
-                if (this.stream.match(TokenType.Spread, false) && (prev.getTokenType() == TokenType.LeftCurly || prev.getTokenType() == TokenType.Comma)) {
+                if (this.stream.match(TokenType.Spread, false) && (prev.getTokenType() === TokenType.LeftCurly || prev.getTokenType() === TokenType.Comma)) {
                     let spread = this.stream.expect(TokenType.Spread);
                     keys.push(spread);
                     values.push(this.parseSpreadAccess(spread));
@@ -490,16 +630,21 @@ export class Parser {
             }
             if (this.stream.match(TokenType.StringLiteral, false)) {
                 key = this.stream.expect(TokenType.StringLiteral);
+            } else if (this.stream.match(TokenType.LeftBracket, true)) {	// [key]
+                key = this.parseExpression()
+                this.stream.expect(TokenType.RightBracket);
             } else {
                 key = this.stream.expect(TokenType.Identifier);
             }
             keys.push(key);
             if (this.stream.match([TokenType.Comma, TokenType.RightCurly], false)) {
                 this.stream.match(TokenType.Comma, true);
-                if (key.getTokenType() === TokenType.Identifier) {
+                if (key instanceof VariableAccess){
+                    values.push(key)
+                } else if (key.getTokenType() === TokenType.Identifier) {
                     values.push(new VariableAccess(key.getSpan(), key.getText()));
                 } else {
-                    values.push(new StringLiteral(key.getSpan(), 'java.lang.String'));
+                    values.push(new Literal(key.getSpan(), 'java.lang.String'));
                 }
             } else {
                 this.stream.expect(":");
@@ -524,11 +669,11 @@ export class Parser {
         }
 
         let closeBracket = this.stream.expect(TokenType.RightBracket).getSpan();
-        return this.parseConverterOrAccessOrCall(new ListLiteral(new Span(openBracket, closeBracket), values));
+        return new ListLiteral(new Span(openBracket, closeBracket), values);
     }
 
     parseSelect() {
-        let opeing = this.stream.expect("select", true).getSpan();
+        let opening = this.stream.expect("select", true).getSpan();
         this.linqLevel++;
         let fields = this.parseLinqFields();
         this.stream.expect("from", true);
@@ -545,8 +690,15 @@ export class Parser {
         }
         let orders = this.parseLinqOrders();
         this.linqLevel--;
+        let limit,offset;
+        if(this.stream.match("limit", true, true)){
+            limit = this.parseExpression();
+            if(this.stream.match("offset", true, true)){
+                offset = this.parseExpression();
+            }
+        }
         let close = this.stream.getPrev().getSpan();
-        return new LinqSelect(new Span(opeing, close), fields, from, joins, where, groups, having, orders);
+        return new LinqSelect(new Span(opening, close), fields, from, joins, where, groups, having, orders, limit, offset);
     }
 
     parseGroup() {
@@ -629,24 +781,24 @@ export class Parser {
 
     parseAccessOrCallOrLiteral(expectRightCurly) {
         let expression;
-        let isString = false;
         if (expectRightCurly && this.stream.match("}", false)) {
             return null;
-        } else if (this.stream.match("async", false)) {
-            expression = this.parseAsync();
-        } else if (this.stream.match("select", false, true)) {
-            expression = this.parseSelect();
         } else if (this.stream.match(TokenType.Spread, false)) {
             expression = this.parseSpreadAccess();
         } else if (this.stream.match(TokenType.Identifier, false)) {
-            expression = this.parseAccessOrCall(TokenType.Identifier);
+            if (this.stream.match("async", false)) {
+                expression = this.parseAsync();
+            } else if (this.stream.match("select", false, true)) {
+                expression = this.parseSelect();
+            } else {
+                expression = this.parseAccessOrCall(TokenType.Identifier);
+            }
         } else if (this.stream.match(TokenType.LeftCurly, false)) {
             expression = this.parseMapLiteral();
         } else if (this.stream.match(TokenType.LeftBracket, false)) {
             expression = this.parseListLiteral();
         } else if (this.stream.match(TokenType.StringLiteral, false)) {
-            isString = true;
-            expression = new Literal(this.stream.expect(TokenType.StringLiteral).getSpan(), 'java.lang.String');
+            expression = this.createStringLiteral(this.stream.expect(TokenType.StringLiteral));
         } else if (this.stream.match(TokenType.BooleanLiteral, false)) {
             expression = new Literal(this.stream.expect(TokenType.BooleanLiteral).getSpan(), 'java.lang.Boolean');
         } else if (this.stream.match(TokenType.DoubleLiteral, false)) {
@@ -665,95 +817,138 @@ export class Parser {
             expression = new Literal(this.stream.expect(TokenType.DecimalLiteral).getSpan(), 'java.math.BigDecimal');
         } else if (this.stream.match(TokenType.RegexpLiteral, false)) {
             let token = this.stream.expect(TokenType.RegexpLiteral);
-            let target = new Literal(token.getSpan(), 'java.util.regex.Pattern');
-            expression = this.parseAccessOrCall(target);
+            expression = new Literal(token.getSpan(), 'java.util.regex.Pattern');
         } else if (this.stream.match(TokenType.NullLiteral, false)) {
             expression = new Literal(this.stream.expect(TokenType.NullLiteral).getSpan(), 'null');
         } else if (this.linqLevel > 0 && this.stream.match(TokenType.Asterisk, false)) {
             expression = new WholeLiteral(this.stream.expect(TokenType.Asterisk).getSpan());
-        } else if(this.stream.match(TokenType.Language, false)){
+        } else if (this.stream.match(TokenType.Language, false)) {
             expression = new LanguageExpression(this.stream.consume().getSpan(), this.stream.consume().getSpan());
         }
         if (expression == null) {
             throw new ParseException("Expected a variable, field, map, array, function or method call, or literal.", this.stream.hasMore() ? this.stream.consume().getSpan() : this.stream.getPrev().getSpan());
         }
-        if (expression && isString && this.stream.match([TokenType.Period, TokenType.QuestionPeriod], false)) {
-            this.stream.prev();
-            expression = this.parseAccessOrCall(TokenType.StringLiteral);
-        }
-        return this.parseConverterOrAccessOrCall(expression);
+        return this.parseAccessOrCall(expression);
     }
 
-    async preprocessComplection(returnJavaType, defineEnvironment) {
-        let env = {
-            ...defineEnvironment,
-            ...JavaClass.getAutoImportClass(),
-            ...JavaClass.getAutoImportModule()
+    createStringLiteral(token) {
+        if (token.getTokenStream() == null) {
+            return new Literal(token.getSpan(), 'java.lang.String');
         }
-        let expression;
+        let tempStream = this.stream;
+        this.stream = token.getTokenStream();
+        let expressions = [];
         while (this.stream.hasMore()) {
-            let token = this.stream.consume();
-            var index = this.stream.makeIndex();
-            try {
-                if (token.type === TokenType.Identifier && token.getText() === 'var') {
-                    let varName = this.stream.consume().getText();
-                    if (this.stream.match(TokenType.Assignment, true)) {
-                        let isAsync = this.stream.match("async", true);
-                        let value = this.parseStatement();
-                        env[varName] = isAsync ? "java.util.concurrent.Future" : await value.getJavaType(env);
-                        if (!this.stream.hasMore()) {
-                            expression = value;
-                        }
-                    }
-                } else if (token.type === TokenType.Identifier && token.getText() === 'import') {
-                    let varName;
-                    let value;
-                    if (this.stream.match(TokenType.Identifier, false)) {
-                        varName = this.stream.consume().getText();
-                        value = varName;
-                    } else if (this.stream.match(TokenType.StringLiteral, false)) {
-                        value = this.stream.consume().getText();
-                        value = value.substring(1, value.length - 1);
-                    }
-                    let index = -1;
-                    if (this.stream.match('as', true)) {
-                        varName = this.stream.consume().getText();
-                    } else {
-                        index = value.lastIndexOf('.');
-                        if (index > -1) {
-                            varName = value.substring(index + 1)
-                        }
-                    }
-                    if (varName) {
-                        env[varName] = value;
-                    }
-                } else if (token.getTokenType() === TokenType.Assignment) {
-                    let varName = this.stream.getPrev().getText()
-                    let value = this.parseStatement();
-                    env[varName] = await value.getJavaType(env);
-                    if (!this.stream.hasMore()) {
-                        expression = value;
-                    }
-                } else if (token.getTokenType() === TokenType.Identifier) {
-                    this.stream.prev();
-                    expression = this.parseAccessOrCall(token.getTokenType());
-                }
-            } catch (e) {
-                this.stream.resetIndex(index);
-                expression = null;
-            }
-
+            expressions.push(this.parseExpression());
         }
-        if (returnJavaType) {
-            return expression && await expression.getJavaType(env);
-        }
-        return env;
+        this.stream = tempStream;
+        return new Literal(token.getSpan(), 'java.lang.String', expressions);
     }
 
-    async completion(env) {
-        var type = await this.preprocessComplection(true, env || {});
-        return await JavaClass.loadClass(type);
+    findBestMatch(node, position){
+        let expressions = node.expressions().filter(it => it);
+        for (let index in expressions) {
+            let best = this.findBestMatch(expressions[index], position)
+            if (best) {
+                return best;
+            }
+        }
+        if (node.getSpan().inPosition(position)) {
+            return node;
+        }
+        return null;
+    }
 
+
+}
+
+function processBody(body, level) {
+    let arr = []
+    let defaultParam = {
+        name: '',
+        value: '',
+        dataType: '',
+        validateType: '',
+        expression: '',
+        error: '',
+        description: '',
+        children: [],
+        level: level + 1,
+        selected: false
+    }
+    if (body instanceof MapLiteral) {
+        body.keys.forEach((key, index) => {
+            let value = body.values[index];
+            let param = {
+                ...defaultParam,
+                name: key.span.getText().replace(/['"]/g, ''),
+                value: isSimpleObject(value) ? value.span.getText().trim() : '',
+                dataType: getType(value),
+            }
+            if (value instanceof MapLiteral || value instanceof ListLiteral) {
+                param.children = processBody(value, level + 1);
+            }
+            arr.push(param)
+        });
+    } else if (body instanceof ListLiteral) {
+        if (body.values[0]) {
+            let value = body.values[0]
+            let param = {
+                ...defaultParam,
+                value: isSimpleObject(value) ? value.span.getText().trim() : '',
+                dataType: getType(value),
+            }
+            if (value instanceof MapLiteral || value instanceof ListLiteral) {
+                param.children = processBody(value, level + 1);
+            }
+            arr.push(param)
+        }
+    }
+    return arr;
+}
+
+function isSimpleObject(object) {
+    return !(object instanceof MapLiteral || object instanceof ListLiteral)
+}
+
+function getType(object) {
+    if (object instanceof MapLiteral) {
+        return "Object";
+    }
+    if (object instanceof ListLiteral) {
+        return "Array";
+    }
+    if (object instanceof UnaryOperation) {
+        object = object.operand;
+    }
+    let type = object.javaType.substring(object.javaType.lastIndexOf(".") + 1);
+    if (type === 'Integer' && Number(object.span.getText()) > 0x7fffffff || Number(object.span.getText()) < -0x80000000) {
+        return 'Long'
+    }
+    return type === 'null' ? 'Object' : type;
+}
+
+export function parseJson(bodyStr) {
+    try {
+        JSON.parse(bodyStr)
+        let parser = new Parser(new TokenStream(tokenizer(bodyStr)))
+        let expr = parser.parseExpression();
+        let reqBody = []
+        reqBody.push({
+            name: '',
+            value: '',
+            dataType: getType(expr),
+            validateType: '',
+            expression: '',
+            error: '',
+            description: '',
+            children: processBody(expr, 0),
+            level: 0,
+            selected: false
+        })
+        return reqBody
+    } catch (e) {
+        // console.error(e)
     }
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="ma-debug-contianer">
+  <div class="ma-debug-container">
     <ul>
       <li :class="{ disabled: !debuging }" title="继续(F8)" @click="bus.$emit('doContinue')"><i
           class="ma-icon ma-icon-continue"/></li>
@@ -16,12 +16,12 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-if="variables.length == 0">
+        <tr v-if="variables.length === 0">
           <td align="center" colspan="3">no message.</td>
         </tr>
         <tr v-for="(item,key) in variables" :key="'debug_var_' + key">
           <td>{{ item.name }}</td>
-          <td>{{ item.value }}</td>
+          <td><magic-structure :data="item.value" :type="item.type"/></td>
           <td>{{ item.type }}</td>
         </tr>
         </tbody>
@@ -32,12 +32,13 @@
 
 <script>
 import bus from '@/scripts/bus.js'
-
+import MagicStructure from '@/components/common/magic-structure.vue'
 export default {
   name: 'MagicDebug',
   props: {
     info: Object
   },
+  components: { MagicStructure },
   data() {
     return {
       bus
@@ -55,7 +56,7 @@ export default {
 </script>
 
 <style scoped>
-.ma-debug-contianer {
+.ma-debug-container {
   height: 100%;
   width: 100%;
   position: relative;
@@ -96,7 +97,7 @@ ul li:last-child:not(.disabled) i {
   color: var(--icon-step-color);
 }
 
-.ma-debug-contianer > div {
+.ma-debug-container > div {
   position: absolute;
   left: 24px;
   top: 0px;
@@ -130,8 +131,4 @@ table tbody tr:nth-child(even) {
   background: var(--table-even-background);
 }
 
-table tr:hover td {
-  background: var(--table-hover-background);
-  color: var(--table-hover-color);
-}
 </style>

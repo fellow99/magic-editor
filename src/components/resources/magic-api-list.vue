@@ -1,15 +1,15 @@
 <template>
-  <div class="ma-api-tree">
+  <div class="ma-tree-wrapper">
     <div class="ma-tree-toolbar">
       <div class="ma-tree-toolbar-search"><i class="ma-icon ma-icon-search"></i><input placeholder="输入关键字搜索"
                                                                                        @input="e => doSearch(e.target.value)"/>
       </div>
       <div>
         <div class="ma-tree-toolbar-btn" title="新建分组" @click="openCreateGroupModal()">
-          <i class="ma-icon ma-icon-tianjiawenjianjia"></i>
+          <i class="ma-icon ma-icon-group-add"></i>
         </div>
         <div class="ma-tree-toolbar-btn" title="刷新接口" @click="initData()">
-          <i class="ma-icon ma-icon-shuaxin"></i>
+          <i class="ma-icon ma-icon-refresh"></i>
         </div>
         <div class="ma-tree-toolbar-btn" title="折叠" @click="rebuildTree(true)">
           <i class="ma-icon ma-icon-folding"></i>
@@ -22,15 +22,17 @@
         </div>
       </div>
     </div>
-    <magic-tree :data="tree" :forceUpdate="forceUpdate">
+    <magic-tree :data="tree" :forceUpdate="forceUpdate" :loading="showLoading">
       <template #folder="{ item }">
         <div
             v-if="item._searchShow !== false"
+            :id="'magic-api-list-' + item.id"
             :class="{ 'ma-tree-select': item.selectRightItem }"
             :draggable="true"
             :style="{ 'padding-left': 17 * item.level + 'px' }"
             :title="(item.name || '') + '(' + (item.path || '') + ')'"
             class="ma-tree-item-header ma-tree-hover"
+            :dragtarget="dragging && draggableTargetItem === item"
             @click="bus.$emit('api-group-selected', item)"
             @dblclick="$set(item, 'opened', !item.opened)"
             @dragenter="e => draggable(item, e, 'dragenter')"
@@ -50,6 +52,7 @@
             v-if="item._searchShow !== false"
             :class="{ 'ma-tree-select': item.selectRightItem || item.tmp_id === currentFileItem.tmp_id }"
             :draggable="true"
+            :id="'magic-api-list-' + (item.id || item.tmp_id)"
             :style="{ 'padding-left': 17 * item.level + 'px' }"
             class="ma-tree-hover"
             :title="item.method + ':' + (item.name || '') + '(' + (item.path || '') + ')'"
@@ -60,9 +63,10 @@
             @dragend.stop="e => draggable(item, e, 'dragend')"
             @dragover.prevent
         >
-          <i class="ma-svg-icon" :class="['request-method-' + item.method]" />
+          <magic-text-icon v-model="item.method"/>
           <label>{{ item.name }}</label>
           <span>({{ item.path }})</span>
+          <i class="ma-icon ma-icon-lock" v-if="item.lock === '1'"></i>
         </div>
       </template>
     </magic-tree>
@@ -81,6 +85,24 @@
         <button class="ma-button" @click="createGroupAction(false)">取消</button>
       </template>
     </magic-dialog>
+    <magic-dialog v-model="apiCopyGroupChooseVisible" title="复制接口到组" align="right" :moveable="false" width="340px" height="390px"
+                  className="ma-tree-wrapper">
+      <template #content>
+        <magic-group-choose ref="apiCopyGroupChoose" rootName="接口分组" type="1" height="300px" max-height="300px"/>
+      </template>
+      <template #buttons>
+        <button class="ma-button active" @click="copyApi">复制</button>
+      </template>
+    </magic-dialog>
+    <magic-dialog v-model="groupChooseVisible" title="复制分组" align="right" :moveable="false" width="340px" height="390px"
+                  className="ma-tree-wrapper">
+      <template #content>
+        <magic-group-choose ref="groupChoose" rootName="接口分组" type="1" height="300px" max-height="300px"/>
+      </template>
+      <template #buttons>
+        <button class="ma-button active" @click="copyGroup">复制</button>
+      </template>
+    </magic-dialog>
   </div>
 </template>
 
@@ -90,9 +112,12 @@ import MagicTree from '../common/magic-tree.vue'
 import request from '@/api/request.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
-import { replaceURL, download as downloadFile} from '@/scripts/utils.js'
+import MagicGroupChoose from '@/components/resources/magic-group-choose.vue'
+import { replaceURL, download as downloadFile, requestGroup, goToAnchor, deepClone } from '@/scripts/utils.js'
 import contants from '@/scripts/contants.js'
 import Key from '@/scripts/hotkey.js'
+import JavaClass from "@/scripts/editor/java-class.js"
+import MagicTextIcon from "@/components/common/magic-text-icon";
 
 export default {
   name: 'MagicApiList',
@@ -100,9 +125,11 @@ export default {
     apis: Array
   },
   components: {
+    MagicTextIcon,
     MagicTree,
     MagicDialog,
-    MagicInput
+    MagicInput,
+    MagicGroupChoose
   },
   data() {
     return {
@@ -115,6 +142,10 @@ export default {
       tree: [],
       // 数据排序规则,true:升序,false:降序
       treeSort: true,
+      apiCopyGroupChooseVisible: false,
+      groupChooseVisible: false,
+      srcItem: {},
+      srcId: '',
       // 新建分组对象
       createGroupObj: {
         visible: false,
@@ -133,34 +164,50 @@ export default {
       forceUpdate: true,
       // 拖拽的item
       draggableItem: {},
-      draggableTargetItem: {}
+      draggableTargetItem: {},
+      // 是否展示tree-loading
+      showLoading: true,
+      dragging: false,
+      // 缓存一个openId
+      tmpOpenId: []
     }
   },
   methods: {
     doSearch(keyword) {
+      keyword = keyword.toLowerCase();
       let loopSearch = (row, parentName, parentPath) => {
         if (row.folder) {
           row.children.forEach(it => loopSearch(it, parentName + '/' + (row.name || ''), parentPath + '/' + (row.path || '')))
-          row._searchShow = row.children.some(it => it._searchShow)
+          row._searchShow = (row.name || '').toLowerCase().indexOf(keyword) > -1 || row.children.some(it => it._searchShow)
         } else {
-          row._searchShow = replaceURL(parentName + '/' + (row.name || '')).indexOf(keyword) > -1 || replaceURL(parentPath + '/' + (row.path || '')).indexOf(keyword) > -1
+          row._searchShow = replaceURL(parentName + '/' + (row.name || '')).toLowerCase().indexOf(keyword) > -1 || replaceURL(parentPath + '/' + (row.path || '')).toLowerCase().indexOf(keyword) > -1
         }
       }
       this.tree.forEach(it => loopSearch(it, '', ''))
       this.changeForceUpdate()
     },
     open(item) {
+      bus.$emit('status', `查看接口「${item.name}(${item.path})」详情`)
       bus.$emit('open', item)
       this.currentFileItem = item
     },
     // 初始化数据
     initData() {
+      bus.$emit('status', '正在初始化接口列表')
+      this.showLoading = true
       this.tree = []
-      request.send('group/list?type=1').success(data => {
-        this.listGroupData = data
-        request.send('list').success(data => {
-          this.listChildrenData = data
-          this.initTreeData()
+      return new Promise((resolve) => {
+        request.send('group/list?type=1').success(data => {
+          this.listGroupData = data || []
+          bus.$emit('status', '接口分组加载完毕')
+          request.send('list').success(data => {
+            this.listChildrenData = data || []
+            this.initTreeData()
+            this.openItemById()
+            this.showLoading = false
+            bus.$emit('status', '接口信息加载完毕')
+            resolve()
+          })
         })
       })
     },
@@ -171,7 +218,7 @@ export default {
       this.listGroupData.forEach(element => {
         groupItem[element.id] = []
         element.folder = true
-        this.$set(element, 'opened', true)
+        this.$set(element, 'opened', contants.DEFAULT_EXPAND)
         // 缓存一个name和path给后面使用
         element.tmpName = element.name.indexOf('/') === 0 ? element.name : '/' + element.name
         element.tmpPath = element.path.indexOf('/') === 0 ? element.path : '/' + element.path
@@ -226,9 +273,7 @@ export default {
           if (element.folder === true) {
             element.tmpName = (parentItem.tmpName + '/' + element.name).replace(new RegExp('(/)+', 'gm'), '/')
             element.tmpPath = (parentItem.tmpPath + '/' + element.path).replace(new RegExp('(/)+', 'gm'), '/')
-            if (folding === true) {
-              this.$set(element, 'opened', false)
-            }
+            this.$set(element, 'opened', folding !== true)
             if (element.children && element.children.length > 0) {
               buildHandle(element.children, element, level + 1)
             }
@@ -291,6 +336,7 @@ export default {
         menus: [
           {
             label: '新建接口',
+            icon: 'ma-icon-plus',
             onClick: () => {
               let newItem = {
                 id: '',
@@ -303,6 +349,7 @@ export default {
                 parameters: null,
                 paths: null,
                 option: null,
+                lock: '0',
                 requestBody: null,
                 headers: null,
                 responseBody: null,
@@ -319,6 +366,7 @@ export default {
           },
           {
             label: '刷新接口',
+            icon: 'ma-icon-refresh',
             divided: true,
             onClick: () => {
               this.initData()
@@ -326,18 +374,30 @@ export default {
           },
           {
             label: '新建分组(Alt+G)',
+            icon: 'ma-icon-group-add',
             onClick: () => {
               this.openCreateGroupModal(null, item)
             }
           },
           {
             label: '修改分组',
+            icon: 'ma-icon-update',
             onClick: () => {
               this.openCreateGroupModal(item)
             }
           },
           {
+            label: '复制分组',
+            icon: 'ma-icon-copy',
+            onClick: () => {
+              this.srcId = item.id
+              this.groupChooseVisible = true
+              this.$refs.groupChoose.initData()
+            }
+          },
+          {
             label: '删除分组',
+            icon: 'ma-icon-delete',
             divided: true,
             onClick: () => {
               this.deleteGroupAction(item)
@@ -345,15 +405,11 @@ export default {
           },
           {
             label: '移动到根节点',
+            icon: 'ma-icon-move',
             onClick: () => {
               item.parentId = '0'
-              request.send('group/update', JSON.stringify(item),{
-                  method: 'post',
-                  headers: {
-                      'Content-Type': 'application/json'
-                  },
-                  transformRequest: []
-              }).success(data => {
+              bus.$emit('status', `准备移动接口分组「${item.name}」至根节点`)
+              requestGroup('group/update', item).success(data => {
                 bus.$emit('report', 'group_update')
                 // 先删除移动前的分组
                 this.deleteOrAddGroupToTree(this.tree, item, true)
@@ -362,17 +418,24 @@ export default {
                 this.rebuildTree()
                 this.initCreateGroupObj()
                 this.changeForceUpdate()
+                bus.$emit('status', `接口分组「${item.name}」已移动至根节点`)
               })
             }
           },
           {
             label: '导出',
+            icon: 'ma-icon-download',
             onClick: () => {
-              request.send('download',{
-                groupId: item.id
-              },{
+              bus.$emit('status', `准备导出接口分组「${item.name}」相关接口`)
+              request.send(`/download?groupId=${item.id}`,null,{
+                headers: {
+                  'Content-Type': 'application/json'
+                },
                 responseType: 'blob'
-              }).success(blob => downloadFile(blob,`${item.name}.zip`))
+              }).success(blob => {
+                downloadFile(blob,`${item.name}.zip`)
+                bus.$emit('status', `接口分组「${item.name}」相关接口已导出`)
+              })
             }
           }
         ],
@@ -391,14 +454,16 @@ export default {
         menus: [
           {
             label: '复制接口',
+            icon: 'ma-icon-copy',
             onClick: () => {
               if (!item.id) {
                 this.$magicAlert({content: '请先保存在复制！'})
                 return
               }
+              bus.$emit('status', `复制接口「${item.name}」`)
               let newItem = {
-                copy: true,
-                ...item
+                ...deepClone(item),
+                copy: true
               }
               newItem.name = newItem.name + '(复制)'
               newItem.tmp_id = new Date().getTime() + '' + Math.floor(Math.random() * 1000)
@@ -408,20 +473,62 @@ export default {
             }
           },
           {
+            label: '复制接口到...',
+            icon: 'ma-icon-copy',
+            onClick: () => {
+              if (!item.id) {
+                this.$magicAlert({content: '请先保存在复制！'})
+                return
+              }
+              this.srcItem = item;
+              this.apiCopyGroupChooseVisible = true
+              this.$refs.apiCopyGroupChoose.initData();
+            }
+          },
+          {
             label: '复制路径',
+            icon: 'ma-icon-copy',
             divided: true,
             onClick: () => {
               this.copyPathToClipboard(item)
             }
           },
           {
+            label: '复制相对路径',
+            icon: 'ma-icon-copy',
+            divided: true,
+            onClick: () => {
+              this.copyPathToClipboard(item, true)
+            }
+          },
+          {
+            label: `${item.lock === '1' ? '解锁' : '锁定'}`,
+            icon: `ma-icon-${item.lock === '1' ? 'unlock' : 'lock'}`,
+            onClick: () => {
+              let action = item.lock === '1' ? '解锁接口' : '锁定接口';
+              request.send(item.lock === '1' ? 'unlock' : 'lock', {id: item.id}).success(data => {
+                if (data) {
+                  bus.$emit('status', `${action}「${item.name}(${item.path})」`)
+                  bus.$emit('report', `api_${item.lock === '1' ? 'unlock' : 'lock'}`)
+                  item['lock'] = item.lock === '1' ? '0' : '1';
+                  this.changeForceUpdate()
+                } else {
+                  this.$magicAlert({content: `${action}失败`})
+                }
+              })
+            }
+          },
+          {
             label: '刷新接口',
+            icon: 'ma-icon-refresh',
+            divided: true,
             onClick: () => {
               this.initData()
             }
           },
           {
             label: '删除接口',
+            icon: 'ma-icon-delete',
             divided: true,
             onClick: () => {
               this.deleteApiInfo(item)
@@ -435,6 +542,38 @@ export default {
         }
       })
       return false
+    },
+    copyApi() {
+      let target = this.$refs.apiCopyGroupChoose.getSelected()
+      if(target && this.srcItem.id){
+        this.$refs.apiCopyGroupChoose.unDoSelected();
+        this.apiCopyGroupChooseVisible = false
+        let group = this.getGroupsById(target)[0];
+        bus.$emit('status', `复制接口「${this.srcItem.name}」到「${group.name}」分组`)
+        let newItem = {
+          ...deepClone(this.srcItem),
+          copy: true
+        }
+        newItem.name = newItem.name + '(复制)'
+        newItem.tmp_id = new Date().getTime() + '' + Math.floor(Math.random() * 1000)
+        newItem.selectRightItem = false
+        newItem.level = group.level + 1;
+        newItem.groupId = target;
+        newItem.groupName = group.name;
+        newItem.groupPath = group.path;
+        this.pushFileItemToGroup(this.tree, newItem)
+        this.open(newItem)
+        this.srcItem = {};
+      }
+    },
+    copyGroup(){
+      let target = this.$refs.groupChoose.getSelected()
+      if(target && this.srcId){
+        this.groupChooseVisible = false
+        request.send('group/copy', { src: this.srcId, target }).success(() => {
+          this.initData();
+        })
+      }
     },
     // 删除接口
     deleteApiInfo(item) {
@@ -487,34 +626,31 @@ export default {
         }
         // id存在发送更新请求，不存在发送新增请求
         if (this.createGroupObj.id) {
-          request.send('group/update', JSON.stringify(this.createGroupObj), {
-            method: 'post',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            transformRequest: []
-          }).success(data => {
+          requestGroup('group/update', this.createGroupObj).success(data => {
             bus.$emit('report', 'group_update')
             this.tempGroupObj.name = this.createGroupObj.name
             this.tempGroupObj.path = this.createGroupObj.path
             this.rebuildTree()
+            this.$nextTick(() => {
+              goToAnchor('#magic-api-list-' + this.createGroupObj.id)
+            })
             this.initCreateGroupObj()
             this.tempGroupObj = {}
           })
         } else {
-          request.send('group/create', JSON.stringify(this.createGroupObj), {
-            method: 'post',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            transformRequest: []
-          }).success(data => {
+          requestGroup('group/create', this.createGroupObj).success(data => {
             this.createGroupObj.id = data
             this.createGroupObj.folder = true
+            this.createGroupObj.paths = []
+            this.createGroupObj.options = []
             bus.$emit('report', 'group_create')
             bus.$emit('status', `分组「${this.createGroupObj.name}」创建成功`)
             this.deleteOrAddGroupToTree(this.tree, this.createGroupObj)
             this.rebuildTree()
+            const id = this.createGroupObj.id
+            this.$nextTick(() => {
+              goToAnchor('#magic-api-list-' + id)
+            })
             this.initCreateGroupObj()
           })
         }
@@ -568,8 +704,8 @@ export default {
       })
     },
     // 复制接口路径到剪贴板
-    copyPathToClipboard(fileItem) {
-      let path = replaceURL(contants.SERVER_URL + '/' + fileItem.groupPath + '/' + fileItem.path)
+    copyPathToClipboard(fileItem, relative) {
+      let path = replaceURL((relative ? '' : contants.SERVER_URL) + '/' + fileItem.groupPath + '/' + fileItem.path)
       try {
         var copyText = document.createElement('textarea')
         copyText.style = 'position:absolute;left:-99999999px'
@@ -578,7 +714,7 @@ export default {
         copyText.readOnly = false
         copyText.select()
         document.execCommand('copy')
-        this.$magicAlert({title: '复制接口路径', content: '复制成功'})
+        bus.$emit('status', `接口路径「${path}」复制成功`)
       } catch (e) {
         this.$magicAlert({title: '复制接口路径失败，请手动复制', content: path})
         console.error(e)
@@ -611,7 +747,7 @@ export default {
         item.tmpName = ('/' + item.name).replace(new RegExp('(/)+', 'gm'), '/')
         item.tmpPath = ('/' + item.path).replace(new RegExp('(/)+', 'gm'), '/')
         item.folder = true
-        this.$set(item, 'opened', true)
+        this.$set(item, 'opened', contants.DEFAULT_EXPAND)
         this.$set(item, 'selectRightItem', false)
         tree.push(item)
         return true
@@ -634,7 +770,7 @@ export default {
             item.tmpName = (element.tmpName + '/' + item.name).replace(new RegExp('(/)+', 'gm'), '/')
             item.tmpPath = (element.tmpPath + '/' + item.path).replace(new RegExp('(/)+', 'gm'), '/')
             item.folder = true
-            this.$set(item, 'opened', true)
+            this.$set(item, 'opened', contants.DEFAULT_EXPAND)
             this.$set(item, 'selectRightItem', false)
             element.children.push(item)
             find = true
@@ -679,9 +815,11 @@ export default {
           // 拖拽到某个元素上
         case 'dragenter':
           this.draggableTargetItem = item
+          this.dragging = true
           break
           // 结束拖拽
         case 'dragend':
+          this.dragging = false
           // 目标对象必须是分组
           if (this.draggableTargetItem.folder === true) {
             // 移动分组
@@ -704,13 +842,8 @@ export default {
               if (checkChildrenFolder(this.draggableItem.children) === false) {
                 let params = JSON.parse(JSON.stringify(this.draggableItem))
                 params.parentId = this.draggableTargetItem.id
-                request.send('group/update', JSON.stringify(params),{
-                    method: 'post',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    transformRequest: []
-                }).success(data => {
+                bus.$emit('status', `准备移动接口分组「${params.name}」`)
+                requestGroup('group/update', params).success(data => {
                   bus.$emit('report', 'group_update')
                   // 先删除移动前的分组
                   this.deleteOrAddGroupToTree(this.tree, this.draggableItem, true)
@@ -719,6 +852,10 @@ export default {
                   this.rebuildTree()
                   this.initCreateGroupObj()
                   this.changeForceUpdate()
+                  this.$nextTick(() => {
+                    goToAnchor('#magic-api-list-' + this.draggableItem.id)
+                  })
+                  bus.$emit('status', `接口分组「${params.name}」移动成功`)
                 })
               } else {
                 this.$magicAlert({content: `不能移到${this.draggableTargetItem.name}`})
@@ -727,6 +864,7 @@ export default {
               // 移动接口
               // 接口不能在目标分组的第一级children里
               if (this.draggableTargetItem.children.some(item => item.id === this.draggableItem.id) === false) {
+                bus.$emit('status', `准备移动接口「${this.draggableItem.name}」`)
                 request.send('api/move', {
                   id: this.draggableItem.id,
                   groupId: this.draggableTargetItem.id
@@ -739,6 +877,10 @@ export default {
                   this.rebuildTree()
                   this.initCreateGroupObj()
                   this.changeForceUpdate()
+                  this.$nextTick(() => {
+                    goToAnchor('#magic-api-list-' + this.draggableItem.id)
+                  })
+                  bus.$emit('status', `接口「${this.draggableItem.name}」移动成功`)
                 })
               }
             }
@@ -774,9 +916,46 @@ export default {
         item = this.getItemById(item.parentId)
       }
       return items
+    },
+    position(id){
+      this.$nextTick(()=> {
+        this.rebuildTree(false)
+        this.openItemById(id)
+      })
+    },
+    // 根据id打开对应item
+    openItemById(openId) {
+      // 证明当前请求还没有请求到数据
+      if (this.listChildrenData.length === 0) {
+        this.tmpOpenId.push(openId)
+      } else {
+        if (!this.tmpOpenId.includes(openId)) {
+          this.tmpOpenId.push(openId)
+        }
+        this.tmpOpenId.forEach(id => {
+          const cache = this.getItemById(id)
+          if (cache) {
+            this.$nextTick(() => {
+              this.open(cache)
+              this.$nextTick(() => goToAnchor('.ma-tree-select'))
+            })
+          }
+        })
+        this.tmpOpenId = []
+      }
     }
   },
   mounted() {
+    JavaClass.setApiFinder(()=> {
+      return this.listChildrenData.filter(it => !it.folder).map(it => {
+        return {
+          path: replaceURL(it.groupPath + '/' + it.path),
+          name: replaceURL(it.groupName + '/' + it.name),
+          method: it.method
+        }
+      })
+    })
+    this.bus.$on('logout', () => this.tree = [])
     this.bus.$on('opened', item => {
       this.currentFileItem = item
     })

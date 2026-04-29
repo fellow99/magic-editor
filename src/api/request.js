@@ -1,8 +1,8 @@
 import axios from 'axios'
 import Qs from 'qs'
 import {modal} from '@/components/common/modal'
-import {replaceURL} from '@/scripts/utils.js'
 import contants from '@/scripts/contants.js'
+import bus from '@/scripts/bus.js'
 
 const config = {
     // 请求路径
@@ -139,16 +139,40 @@ class HttpRequest {
         }
         requestConfig.baseURL = config.baseURL
         let httpResponse = new HttpResponse()
+        let successed = false;
+        let processResult = (data, response) => {
+            if(data instanceof Blob){
+                successed = true
+                httpResponse.successHandle && httpResponse.successHandle(data, response)
+            } else if (data.code === 1) {
+                successed = true
+                httpResponse.successHandle && httpResponse.successHandle(data.data, response)
+            } else {
+                if (data.code === 401) {
+                    bus.$emit('showLogin')
+                }
+                httpResponse.exceptionHandle && httpResponse.exceptionHandle(data.code, data.message, response)
+            }
+        }
         this.execute(requestConfig)
             .then(response => {
                 let data = response.data
-                if(data instanceof Blob){
-                    httpResponse.successHandle && httpResponse.successHandle(data, response)
-                }else if (data.code === 1) {
-                    httpResponse.successHandle && httpResponse.successHandle(data.data, response)
-                } else {
-                    httpResponse.exceptionHandle && httpResponse.exceptionHandle(data.code, data.message, response)
+                let isJson = response.headers['content-type'] && response.headers['content-type'].startsWith('application/json')
+                if(data instanceof Blob && isJson){
+                    let reader = new FileReader()
+                    reader.readAsText(data)
+                    reader.onload = function() {
+                        try{
+                            data = JSON.parse(this.result)
+                            processResult(data, response)
+                        }catch(e){
+                            console.error(e);
+                            processResult(data, response)
+                        }
+                    }
+                    return;
                 }
+                processResult(data, response)
             })
             .catch((error) => {
                 if (typeof httpResponse.errorHandle === 'function') {
@@ -160,14 +184,10 @@ class HttpRequest {
             })
             .finally(() => {
                 if (typeof httpResponse.endHandle === 'function') {
-                    httpResponse.endHandle()
+                    httpResponse.endHandle(successed)
                 }
             })
         return httpResponse
-    }
-
-    createConsole() {
-        return new EventSource(replaceURL(config.baseURL + '/console'));
     }
 }
 

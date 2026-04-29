@@ -1,15 +1,15 @@
 <template>
-  <div class="ma-api-tree">
+  <div class="ma-tree-wrapper">
     <div class="ma-tree-toolbar">
       <div class="ma-tree-toolbar-search"><i class="ma-icon ma-icon-search"></i><input placeholder="输入关键字搜索"
                                                                                        @input="e => doSearch(e.target.value)"/>
       </div>
       <div>
         <div class="ma-tree-toolbar-btn" title="新建分组" @click="openCreateGroupModal()">
-          <i class="ma-icon ma-icon-tianjiawenjianjia"></i>
+          <i class="ma-icon ma-icon-group-add"></i>
         </div>
         <div class="ma-tree-toolbar-btn" title="刷新函数" @click="initData()">
-          <i class="ma-icon ma-icon-shuaxin"></i>
+          <i class="ma-icon ma-icon-refresh"></i>
         </div>
         <div class="ma-tree-toolbar-btn" title="折叠" @click="rebuildTree(true)">
           <i class="ma-icon ma-icon-folding"></i>
@@ -22,15 +22,17 @@
         </div>
       </div>
     </div>
-    <magic-tree :data="tree" :forceUpdate="forceUpdate">
+    <magic-tree :data="tree" :forceUpdate="forceUpdate" :loading="showLoading">
       <template #folder="{ item }">
         <div
             v-if="item._searchShow !== false"
+            :id="'magic-function-list-' + item.id"
             :class="{ 'ma-tree-select': item.selectRightItem }"
             :draggable="true"
             :style="{ 'padding-left': 17 * item.level + 'px' }"
             :title="(item.name || '') + '(' + (item.path || '') + ')'"
             class="ma-tree-item-header ma-tree-hover"
+            :dragtarget="dragging && draggableTargetItem === item"
             @click="$set(item, 'opened', !item.opened)"
             @dragenter="e => draggable(item, e, 'dragenter')"
             @contextmenu.prevent="e => folderRightClickHandle(e, item)"
@@ -49,6 +51,7 @@
             v-if="item._searchShow !== false"
             :class="{ 'ma-tree-select': item.selectRightItem || item.tmp_id === currentFileItem.tmp_id }"
             :draggable="true"
+            :id="'magic-function-list-' + (item.id || item.tmp_id)"
             :style="{ 'padding-left': 17 * item.level + 'px' }"
             class="ma-tree-hover"
             :title="(item.name || '') + '(' + (item.path || '') + ')'"
@@ -59,9 +62,10 @@
             @dragend.stop="e => draggable(item, e, 'dragend')"
             @dragover.prevent
         >
-          <i class="ma-svg-icon icon-function" />
+          <magic-text-icon value="function"/>
           <label>{{ item.name }}</label>
           <span>({{ item.path }})</span>
+          <i class="ma-icon ma-icon-lock" v-if="item.lock === '1'"></i>
         </div>
       </template>
     </magic-tree>
@@ -80,6 +84,16 @@
         <button class="ma-button" @click="createGroupAction(false)">取消</button>
       </template>
     </magic-dialog>
+
+    <magic-dialog v-model="groupChooseVisible" title="复制分组" align="right" :moveable="false" width="340px" height="390px"
+                  className="ma-tree-wrapper">
+      <template #content>
+        <magic-group-choose ref="groupChoose" rootName="函数分组" type="2" height="300px" max-height="300px"/>
+      </template>
+      <template #buttons>
+        <button class="ma-button active" @click="copyGroup">复制</button>
+      </template>
+    </magic-dialog>
   </div>
 </template>
 
@@ -89,9 +103,12 @@ import MagicTree from '@/components/common/magic-tree.vue'
 import request from '@/api/request.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
-import {replaceURL} from '@/scripts/utils.js'
+import MagicGroupChoose from '@/components/resources/magic-group-choose.vue'
+import { replaceURL, requestGroup, goToAnchor, deepClone } from '@/scripts/utils.js'
 import JavaClass from '@/scripts/editor/java-class.js'
 import Key from '@/scripts/hotkey.js'
+import contants from '@/scripts/contants.js'
+import MagicTextIcon from "@/components/common/magic-text-icon";
 
 export default {
   name: 'MagicFunctionList',
@@ -99,9 +116,11 @@ export default {
     groups: Array
   },
   components: {
+    MagicTextIcon,
     MagicTree,
     MagicDialog,
-    MagicInput
+    MagicInput,
+    MagicGroupChoose
   },
   data() {
     return {
@@ -114,6 +133,8 @@ export default {
       tree: [],
       // 数据排序规则,true:升序,false:降序
       treeSort: true,
+      groupChooseVisible: false,
+      srcId: '',
       // 新建分组对象
       createGroupObj: {
         visible: false,
@@ -132,17 +153,23 @@ export default {
       forceUpdate: true,
       // 拖拽的item
       draggableItem: {},
-      draggableTargetItem: {}
+      draggableTargetItem: {},
+      // 是否展示tree-loading
+      showLoading: true,
+      dragging: false,
+      // 缓存一个openId
+      tmpOpenId: []
     }
   },
   methods: {
     doSearch(keyword) {
+      keyword = keyword.toLowerCase();
       let loopSearch = (row, parentName, parentPath) => {
         if (row.folder) {
           row.children.forEach(it => loopSearch(it, parentName + '/' + (row.name || ''), parentPath + '/' + (row.path || '')))
-          row._searchShow = row.children.some(it => it._searchShow)
+          row._searchShow = (row.name || '').toLowerCase().indexOf(keyword) > -1 || row.children.some(it => it._searchShow)
         } else {
-          row._searchShow = replaceURL(parentName + '/' + (row.name || '')).indexOf(keyword) > -1 || replaceURL(parentPath + '/' + (row.path || '')).indexOf(keyword) > -1
+          row._searchShow = replaceURL(parentName + '/' + (row.name || '')).toLowerCase().indexOf(keyword) > -1 || replaceURL(parentPath + '/' + (row.path || '')).toLowerCase().indexOf(keyword) > -1
         }
       }
       this.tree.forEach(it => loopSearch(it, '', ''))
@@ -154,16 +181,26 @@ export default {
     },
     open(item) {
       bus.$emit('open', item)
+      bus.$emit('status', `查看函数「${item.name}(${item.path})」详情`)
       this.currentFileItem = item
     },
     // 初始化数据
     initData() {
+      this.showLoading = true
       this.tree = []
-      request.send('group/list?type=2').success(data => {
-        this.listGroupData = data;
-        request.send('function/list').success(data => {
-          this.listChildrenData = data
-          this.initTreeData()
+      bus.$emit('status', '正在初始化函数列表')
+      return new Promise((resolve) => {
+        request.send('group/list?type=2').success(data => {
+          this.listGroupData = data || [];
+          bus.$emit('status', '函数分组加载完毕')
+          request.send('function/list').success(data => {
+            this.listChildrenData = data || []
+            this.initTreeData()
+            this.openItemById()
+            this.showLoading = false
+            bus.$emit('status', '函数信息加载完毕')
+            resolve()
+          })
         })
       })
     },
@@ -174,7 +211,7 @@ export default {
       this.listGroupData.forEach(element => {
         groupItem[element.id] = []
         element.folder = true
-        this.$set(element, 'opened', true)
+        this.$set(element, 'opened', contants.DEFAULT_EXPAND)
         // 缓存一个name和path给后面使用
         element.tmpName = element.name.indexOf('/') === 0 ? element.name : '/' + element.name
         element.tmpPath = element.path.indexOf('/') === 0 ? element.path : '/' + element.path
@@ -229,9 +266,7 @@ export default {
           if (element.folder === true) {
             element.tmpName = (parentItem.tmpName + '/' + element.name).replace(new RegExp('(/)+', 'gm'), '/')
             element.tmpPath = (parentItem.tmpPath + '/' + element.path).replace(new RegExp('(/)+', 'gm'), '/')
-            if (folding === true) {
-              this.$set(element, 'opened', false)
-            }
+            this.$set(element, 'opened', folding !== true)
             if (element.children && element.children.length > 0) {
               buildHandle(element.children, element, level + 1)
             }
@@ -294,6 +329,7 @@ export default {
         menus: [
           {
             label: '新建函数',
+            icon: 'ma-icon-plus',
             onClick: () => {
               let newItem = {
                 id: '',
@@ -302,6 +338,7 @@ export default {
                 path: '',
                 script: null,
                 name: '未定义名称',
+                lock: '0',
                 parameters: null,
                 description: null,
                 level: item.level + 1,
@@ -315,6 +352,7 @@ export default {
           },
           {
             label: '刷新函数',
+            icon: 'ma-icon-refresh',
             divided: true,
             onClick: () => {
               this.initData()
@@ -322,18 +360,30 @@ export default {
           },
           {
             label: '新建分组(Alt+G)',
+            icon: 'ma-icon-group-add',
             onClick: () => {
               this.openCreateGroupModal(null, item)
             }
           },
           {
             label: '修改分组',
+            icon: 'ma-icon-update',
             onClick: () => {
               this.openCreateGroupModal(item)
             }
           },
           {
+            label: '复制分组',
+            icon: 'ma-icon-copy',
+            onClick: () => {
+              this.srcId = item.id
+              this.groupChooseVisible = true
+              this.$refs.groupChoose.initData()
+            }
+          },
+          {
             label: '删除分组',
+            icon: 'ma-icon-delete',
             divided: true,
             onClick: () => {
               this.deleteGroupAction(item)
@@ -341,9 +391,11 @@ export default {
           },
           {
             label: '移动到根节点',
+            icon: 'ma-icon-move',
             onClick: () => {
               item.parentId = '0'
-              request.send('group/update', item).success(data => {
+              bus.$emit('status', `准备移动函数分组「${item.name}」至根节点`)
+              requestGroup('group/update', item).success(data => {
                 bus.$emit('report', 'group_update')
                 // 先删除移动前的分组
                 this.deleteOrAddGroupToTree(this.tree, item, true)
@@ -352,6 +404,7 @@ export default {
                 this.rebuildTree()
                 this.initCreateGroupObj()
                 this.changeForceUpdate()
+                bus.$emit('status', `函数分组「${item.name}」已移动至根节点`)
               })
             }
           }
@@ -371,14 +424,16 @@ export default {
         menus: [
           {
             label: '复制函数',
+            icon: 'ma-icon-copy',
             onClick: () => {
               if (!item.id) {
                 this.$magicAlert({content: '请先保存在复制！'})
                 return
               }
+              bus.$emit('status', `复制函数「${item.name}」`)
               let newItem = {
-                copy: true,
-                ...item
+                ...deepClone(item),
+                copy: true
               }
               newItem.name = newItem.name + '(复制)'
               newItem.tmp_id = new Date().getTime() + '' + Math.floor(Math.random() * 1000)
@@ -388,13 +443,41 @@ export default {
             }
           },
           {
+            label: '复制路径',
+            icon: 'ma-icon-copy',
+            divided: true,
+            onClick: () => {
+              this.copyPathToClipboard(item)
+            }
+          },
+          {
+            label: `${item.lock === '1' ? '解锁' : '锁定'}`,
+            icon: `ma-icon-${item.lock === '1' ? 'unlock' : 'lock'}`,
+            onClick: () => {
+              let action = item.lock === '1' ? '解锁函数' : '锁定函数';
+              request.send(item.lock === '1' ? 'function/unlock' : 'function/lock', {id: item.id}).success(data => {
+                if (data) {
+                  bus.$emit('status', `${action}「${item.name}(${item.path})」`)
+                  bus.$emit('report', `function_${item.lock === '1' ? 'unlock' : 'lock'}`)
+                  item['lock'] = item.lock === '1' ? '0' : '1';
+                  this.changeForceUpdate()
+                } else {
+                  this.$magicAlert({content: `${action}失败`})
+                }
+              })
+            }
+          },
+          {
             label: '刷新函数',
+            icon: 'ma-icon-refresh',
+            divided: true,
             onClick: () => {
               this.initData()
             }
           },
           {
             label: '删除函数',
+            icon: 'ma-icon-delete',
             divided: true,
             onClick: () => {
               this.deleteApiInfo(item)
@@ -408,6 +491,15 @@ export default {
         }
       })
       return false
+    },
+    copyGroup(){
+      let target = this.$refs.groupChoose.getSelected()
+      if(target && this.srcId){
+        this.groupChooseVisible = false
+        request.send('group/copy', { src: this.srcId, target }).success(() => {
+          this.initData();
+        })
+      }
     },
     // 删除接口
     deleteApiInfo(item) {
@@ -460,34 +552,29 @@ export default {
         }
         // id存在发送更新请求，不存在发送新增请求
         if (this.createGroupObj.id) {
-          request.send('group/update', JSON.stringify(this.createGroupObj), {
-            method: 'post',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            transformRequest: []
-          }).success(data => {
+          requestGroup('group/update', this.createGroupObj).success(data => {
             bus.$emit('report', 'group_update')
             this.tempGroupObj.name = this.createGroupObj.name
             this.tempGroupObj.path = this.createGroupObj.path
             this.rebuildTree()
+            this.$nextTick(() => {
+              goToAnchor('#magic-function-list-' + this.createGroupObj.id)
+            })
             this.initCreateGroupObj()
             this.tempGroupObj = {}
           })
         } else {
-          request.send('group/create', JSON.stringify(this.createGroupObj), {
-            method: 'post',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            transformRequest: []
-          }).success(data => {
+          requestGroup('group/create', this.createGroupObj).success(data => {
             this.createGroupObj.id = data
             this.createGroupObj.folder = true
             bus.$emit('report', 'group_create')
             bus.$emit('status', `分组「${this.createGroupObj.name}」创建成功`)
             this.deleteOrAddGroupToTree(this.tree, this.createGroupObj)
             this.rebuildTree()
+            const id = this.createGroupObj.id
+            this.$nextTick(() => {
+              goToAnchor('#magic-function-list-' + id)
+            })
             this.initCreateGroupObj()
           })
         }
@@ -538,6 +625,23 @@ export default {
         }
       })
     },
+    // 复制函数路径到剪贴板
+    copyPathToClipboard(fileItem) {
+      let path = replaceURL('/' + fileItem.groupPath + '/' + fileItem.path)
+      try {
+        var copyText = document.createElement('textarea')
+        copyText.style = 'position:absolute;left:-99999999px'
+        document.body.appendChild(copyText)
+        copyText.innerHTML = path
+        copyText.readOnly = false
+        copyText.select()
+        document.execCommand('copy')
+        bus.$emit('status', `函数路径「${path}」复制成功`)
+      } catch (e) {
+        this.$magicAlert({title: '复制函数路径失败，请手动复制', content: path})
+        console.error(e)
+      }
+    },
     // 将文件类型的对象，放入到点击的同级
     pushFileItemToGroup(tree, newItem) {
       // 标记是否找到对应的item，找到了就退出递归
@@ -565,7 +669,7 @@ export default {
         item.tmpName = ('/' + item.name).replace(new RegExp('(/)+', 'gm'), '/')
         item.tmpPath = ('/' + item.path).replace(new RegExp('(/)+', 'gm'), '/')
         item.folder = true
-        this.$set(item, 'opened', true)
+        this.$set(item, 'opened', contants.DEFAULT_EXPAND)
         this.$set(item, 'selectRightItem', false)
         tree.push(item)
         return true
@@ -588,7 +692,7 @@ export default {
             item.tmpName = (element.tmpName + '/' + item.name).replace(new RegExp('(/)+', 'gm'), '/')
             item.tmpPath = (element.tmpPath + '/' + item.path).replace(new RegExp('(/)+', 'gm'), '/')
             item.folder = true
-            this.$set(item, 'opened', true)
+            this.$set(item, 'opened', contants.DEFAULT_EXPAND)
             this.$set(item, 'selectRightItem', false)
             element.children.push(item)
             find = true
@@ -633,9 +737,11 @@ export default {
           // 拖拽到某个元素上
         case 'dragenter':
           this.draggableTargetItem = item
+          this.dragging = true
           break
           // 结束拖拽
         case 'dragend':
+          this.dragging = false
           // 目标对象必须是分组
           if (this.draggableTargetItem.folder === true) {
             // 移动分组
@@ -658,13 +764,7 @@ export default {
               if (checkChildrenFolder(this.draggableItem.children) === false) {
                 let params = JSON.parse(JSON.stringify(this.draggableItem))
                 params.parentId = this.draggableTargetItem.id
-                request.send('group/update', JSON.stringify(params),{
-                    method: 'post',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    transformRequest: []
-                }).success(data => {
+                requestGroup('group/update', params).success(data => {
                   bus.$emit('report', 'group_update')
                   // 先删除移动前的分组
                   this.deleteOrAddGroupToTree(this.tree, this.draggableItem, true)
@@ -673,6 +773,9 @@ export default {
                   this.rebuildTree()
                   this.initCreateGroupObj()
                   this.changeForceUpdate()
+                  this.$nextTick(() => {
+                    goToAnchor('#magic-function-list-' + this.draggableItem.id)
+                  })
                 })
               } else {
                 this.$magicAlert({content: `不能移到${this.draggableTargetItem.name}`})
@@ -693,6 +796,9 @@ export default {
                   this.rebuildTree()
                   this.initCreateGroupObj()
                   this.changeForceUpdate()
+                  this.$nextTick(() => {
+                    goToAnchor('#magic-function-list-' + this.draggableItem.id)
+                  })
                 })
               }
             }
@@ -717,9 +823,45 @@ export default {
       }
       return handle(this.tree)
     },
+    position(id){
+      this.$nextTick(()=> {
+        this.rebuildTree(false)
+        this.openItemById(id)
+      })
+    },
+    // 根据id打开对应item
+    openItemById(openId) {
+      // 证明当前请求还没有请求到数据
+      if (this.listChildrenData.length === 0) {
+        this.tmpOpenId.push(openId)
+      } else {
+        if (!this.tmpOpenId.includes(openId)) {
+          this.tmpOpenId.push(openId)
+        }
+        this.tmpOpenId.forEach(id => {
+          const cache = this.getItemById(id)
+          if (cache) {
+            this.$nextTick(() => {
+              this.open(cache)
+              this.$nextTick(() => goToAnchor('.ma-tree-select'))
+            })
+          }
+        })
+        this.tmpOpenId = []
+      }
+    }
   },
   mounted() {
     JavaClass.setupOnlineFunction(this.doFindFunction);
+    JavaClass.setFunctionFinder(()=> {
+      return this.listChildrenData.filter(it => !it.folder).map(it => {
+        return {
+          path: replaceURL(it.groupPath + '/' + it.path),
+          name: replaceURL(it.groupName + '/' + it.name),
+        }
+      })
+    })
+    this.bus.$on('logout', () => this.tree = []);
     this.bus.$on('opened', item => {
       this.currentFileItem = item
     })

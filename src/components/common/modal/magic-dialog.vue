@@ -1,17 +1,17 @@
 <template>
-  <div v-show="value" :class="{ moveable,shade }" class="ma-dialog-wrapper">
+  <div v-show="value" :class="[{ moveable,shade },'ma-dialog-wrapper ' + className]">
     <div :style="{ position, top, left,width,height,'max-width': maxWidth }" class="ma-dialog">
       <div ref="title" class="ma-dialog-header not-select">
         {{ title }}
         <span v-if="showClose" @click="close"><i class="ma-icon ma-icon-close"/></span>
       </div>
-      <div :style="{padding}" class="ma-dialog-content">
+      <div :style="{padding,'max-height': maxHeight,height: contentHeight, overflow: 'auto'}" class="ma-dialog-content">
         <template v-if="content">
           {{ content }}
         </template>
         <slot v-else name="content"></slot>
       </div>
-      <div :class="{ 'button-align-right': align == 'right' }" class="ma-dialog-buttons not-select">
+      <div v-if="$scopedSlots && $scopedSlots.buttons" :class="{ 'button-align-right': align == 'right' }" class="ma-dialog-buttons not-select">
         <slot name="buttons"></slot>
       </div>
     </div>
@@ -22,6 +22,10 @@ export default {
   name: 'MagicDialog',
   props: {
     title: String,
+    className: {
+      type: String,
+      default: ''
+    },
     showClose: {
       type: Boolean,
       default: true,
@@ -52,6 +56,12 @@ export default {
       default: 'auto'
     },
     maxWidth: {
+      type: String
+    },
+    maxHeight: {
+      type: String
+    },
+    contentHeight: {
       type: String
     },
     padding: {
@@ -175,25 +185,27 @@ export default {
   line-height: 30px;
   padding-left: 30px;
   padding-right: 75px;
-  background-size: 22px 24px;
-  background-position: 5px 4px;
+  background-position: 7px 7px;
   background-repeat: no-repeat;
   text-align: left;
 }
 
 .ma-dialog-wrapper .ma-dialog .ma-dialog-header span {
   display: inline-block;
-  width: 40px;
+  width: 30px;
   position: absolute;
   right: 0px;
   text-align: center;
   cursor: pointer;
   font-size: 12px;
   height: 30px;
+  line-height: 30px;
 }
 
 .ma-dialog-wrapper .ma-dialog .ma-dialog-header span:hover:not(.disabled) {
   background: #e81123;
+}
+.ma-dialog-wrapper .ma-dialog .ma-dialog-header span:hover:not(.disabled) i{
   color: var(--select-icon-background);
 }
 

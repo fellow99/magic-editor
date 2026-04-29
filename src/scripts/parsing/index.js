@@ -53,9 +53,8 @@ class Span {
         return "Span [text=" + this.getText() + ", start=" + this.start + ", end=" + this.end + "]";
     }
 
-    inPosition(row, col) {
-        let line = this.getLine();
-        return line.endLineNumber >= row && line.lineNumber <= row && line.endCol >= col && line.startCol <= col;
+    inPosition(position) {
+        return this.start <= position && this.end >= position;
     }
 
     getLine() {
@@ -156,12 +155,26 @@ const TokenType = {
     Or: {literal: '||', error: '||'},
     Xor: {literal: '^', error: '^'},
     Not: {literal: '!', error: '!'},
+    BitAnd: {literal:'&', error: '&'},
+    BitOr: {literal:'|', error: '|'},
+    BitNot: {literal:'~', error: '~'},
+    LShift: {literal:'<<', error: '<<'},
+    RShift: {literal:'>>', error: '>>'},
+    RShift2: {literal:'>>>', error: '>>>'},
+    XorEqual: {literal:'^=', error: '^=', modifiable: true},
+    BitAndEqual: {literal:'&=', error: '&=', modifiable: true},
+    BitOrEqual: {literal:'|=', error: '|=', modifiable: true},
+    LShiftEqual: {literal:'<<=', error: '<<=', modifiable: true},
+    RShiftEqual: {literal:'>>=', error: '>>=', modifiable: true},
+    RShift2Equal: {literal:'>>>=', error: '>>>=', modifiable: true},
 
-    SqlAnd: {literal: 'and', error: 'and', inLinq: true},
-    SqlOr: {literal: 'or', error: 'or', inLinq: true},
+
+    SqlAnd: {literal: 'and', error: 'and'},
+    SqlOr: {literal: 'or', error: 'or'},
     SqlNotEqual: {literal: '<>', error: '<>', inLinq: true},
     Questionmark: {literal: '?', error: '?'},
     DoubleQuote: {literal: '"', error: '"'},
+    TripleQuote: {literal: '"""', error: '"""'},
     SingleQuote: {literal: '\'', error: '\''},
     Lambda: {error: '=> 或 ->'},
     BooleanLiteral: {error: 'true 或 false'},
@@ -177,7 +190,8 @@ const TokenType = {
     StringLiteral: {error: '一个 字符串'},
     NullLiteral: {error: 'null'},
     Language: {error: 'language'},
-    Identifier: {error: '标识符'}
+    Identifier: {error: '标识符'},
+    Unknown: {error: 'unknown'}
 };
 let tokenTypeValues = Object.getOwnPropertyNames(TokenType).map(e => TokenType[e]);
 TokenType.getSortedValues = function () {
@@ -200,13 +214,22 @@ TokenType.getSortedValues = function () {
 };
 
 class Token {
-    constructor(tokenType, span) {
+    constructor(tokenType, span, valueOrTokenStream) {
         this.type = tokenType;
         this.span = span;
+        if(valueOrTokenStream instanceof TokenStream){
+            this.tokenStream = valueOrTokenStream;
+        }else if(valueOrTokenStream){
+            this.value = valueOrTokenStream;
+        }
     }
 
     getTokenType() {
         return this.type;
+    }
+
+    getTokenStream() {
+        return this.tokenStream;
     }
 
     getSpan() {
@@ -219,8 +242,40 @@ class Token {
 }
 
 class LiteralToken extends Token {
-    constructor(tokenType, span) {
-        super(tokenType, span)
+    constructor(tokenType, span, valueOrTokenStream) {
+        super(tokenType, span, valueOrTokenStream)
+    }
+
+    getJavaType() {
+        if (this.type === TokenType.StringLiteral) {
+            return 'java.lang.String'
+        }
+        if (this.type === TokenType.DoubleLiteral) {
+            return 'java.lang.Double'
+        }
+        if (this.type === TokenType.ByteLiteral) {
+            return 'java.lang.Byte'
+        }
+        if (this.type === TokenType.FloatLiteral) {
+            return 'java.lang.Float'
+        }
+        if (this.type === TokenType.DecimalLiteral) {
+            return 'java.math.BigDecimal'
+        }
+        if (this.type === TokenType.IntegerLiteral) {
+            return 'java.lang.Integer'
+        }
+        if (this.type === TokenType.LongLiteral) {
+            return 'java.lang.Long'
+        }
+        if (this.type === TokenType.BooleanLiteral) {
+            return 'java.lang.Boolean'
+        }
+        if (this.type === TokenType.RegexpLiteral) {
+            return 'java.util.regex.Pattern'
+        }
+        return 'java.lang.Object'
+
     }
 }
 
@@ -258,17 +313,17 @@ class CharacterStream {
             this.index += needleLength;
         return true;
     }
-
-    matchDigit(consume) {
-        if (this.index >= this.end)
-            return false;
-        let c = this.source.charAt(this.index);
-        if (!isNaN(c)) {
-            if (consume)
-                this.index++;
-            return true;
+    matchAny(strs, consume) {
+        for(let i=0,len = strs.length; i < len;i++){
+            if(this.match(strs[i], consume)){
+                return true;
+            }
         }
         return false;
+    }
+
+    matchDigit(consume) {
+        return this.matchAny('0123456789', consume)
     }
 
     matchIdentifierStart(consume) {
@@ -339,8 +394,11 @@ class CharacterStream {
         this.spanStart = this.index;
     }
 
-    endSpan(offset) {
-        return new Span(this.source, this.spanStart, this.index + (offset || 0));
+    endSpan(offsetOrStart, end) {
+        if(end !== undefined) {
+            return new Span(this.source, offsetOrStart, end)
+        }
+        return new Span(this.source, this.spanStart, this.index + (offsetOrStart || 0));
     }
 
     getPosition() {
@@ -357,6 +415,10 @@ class TokenStream {
         this.tokens = tokens;
         this.index = 0;
         this.end = tokens.length;
+    }
+
+    getEnd() {
+        return this.end > 0 && this.tokens[this.end -1]
     }
 
     hasMore() {
@@ -455,15 +517,15 @@ class TokenStream {
         if (this.match(text, true, ignoreCase)) {
             return this.tokens[this.index - 1];
         } else {
-            let token = this.index < this.tokens.length ? this.tokens[this.index] : null;
-            let span = token != null ? token.getSpan() : null;
-            if (span == null) {
-                throw new ParseException("Expected '" + this.textToString(text) + "', but reached the end of the source.", this.hasMore() ? this.consume().getSpan() : this.getPrev().getSpan());
+            if (!this.hasMore()) {
+                let span = this.tokens[this.index - 1].getSpan();
+                return new Token(TokenType.Unknown, span);
             } else {
+                let token = this.tokens[this.index];
                 if (text instanceof Token) {
                     text = text.type.error;
                 }
-                throw new ParseException("Expected '" + this.textToString(text) + "', but got '" + token.getText() + "'", span);
+                throw new ParseException("Expected '" + this.textToString(text) + "', but got '" + token.getText() + "'", token.getSpan());
             }
         }
     }

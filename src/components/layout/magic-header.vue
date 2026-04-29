@@ -23,24 +23,14 @@
     <span title="导出接口" @click="download">
       <i class="ma-icon ma-icon-download"></i>
     </span>
+    <span title="远程推送" @click="remotePush">
+      <i class="ma-icon ma-icon-push"></i>
+    </span>
     <span v-if="config.header.skin !== false" title="换肤" @click.stop="skinVisible = true">
       <i class="ma-icon ma-icon-skin"></i>
     </span>
-    <span v-if="config.header.repo !== false" title="Gitee"
-          @click="open('https://gitee.com/ssssssss-team/magic-api')">
-      <i class="ma-icon ma-icon-gitee"></i>
-    </span>
-    <span v-if="config.header.repo !== false" title="Github"
-          @click="open('https://github.com/ssssssss-team/magic-api')">
-      <i class="ma-icon ma-icon-git"></i>
-    </span>
-    <span v-if="config.header.qqGroup !== false" title="加入QQ群"
-          @click="open('https://shang.qq.com/wpa/qunwpa?idkey=10faa4cf9743e0aa379a72f2ad12a9e576c81462742143c8f3391b52e8c3ed8d')">
-      <i class="ma-icon ma-icon-qq"></i>
-    </span>
-    <span v-if="config.header.document !== false" title="帮助文档"
-          @click="open('https://ssssssss.org')">
-      <i class="ma-icon ma-icon-help"></i>
+    <span title="重新加载所有数据" @click="refresh">
+      <i class="ma-icon ma-icon-refresh"></i>
     </span>
     <div v-show="skinVisible" :style="{ right: skinRight }" class="ma-skin-selector">
       <ul>
@@ -49,13 +39,42 @@
     </div>
     <magic-dialog title="上传接口" :value="showUploadDialog" align="right" @onClose="showUploadDialog = false">
       <template #content>
-        <input type="file" style="display: none" ref="file" @change="onFileSelected" accept="application/zip">
-        <magic-input icon="upload" :readonly="true" width="235px" placeholder="未选择文件" :onClick="choseFile"
-                     :value="filename"/>
+        <magic-file ref="uploadFile" placeholder="未选择文件" />
       </template>
       <template #buttons>
-        <button class="ma-button active" @click="() => doUpload(false)">上传</button>
-        <button class="ma-button" @click="() => doUpload(true)">强制上传</button>
+        <button class="ma-button active" @click="() => doUpload('increment')">增量上传</button>
+        <button class="ma-button" @click="() => doUpload('full')">全量上传</button>
+      </template>
+    </magic-dialog>
+    <magic-dialog v-model="exportVisible" title="导出" align="right" :moveable="false" width="340px" height="490px"
+                  className="ma-tree-wrapper">
+      <template #content>
+        <magic-resource-choose ref="resourceExport" height="400px" max-height="400px"/>
+      </template>
+      <template #buttons>
+        <button class="ma-button" @click="$refs.resourceExport.doSelectAll(true)">全选</button>
+        <button class="ma-button" @click="$refs.resourceExport.doSelectAll(false)">取消全选</button>
+        <button class="ma-button active" @click="doExport">导出</button>
+      </template>
+    </magic-dialog>
+    <magic-dialog title="远程推送" v-model="showPushDialog" align="right" :moveable="false" class="ma-remote-push-container ma-tree-wrapper"
+                  width="400px" height="540px">
+      <template #content>
+        <magic-resource-choose ref="resourcePush" height="400px" max-height="400px"/>
+        <div>
+          <label>远程地址：</label>
+          <magic-input placeholder="请输入远程地址" v-model="target" width="300px"/>
+        </div>
+        <div>
+          <label>秘钥：</label>
+          <magic-input placeholder="请输入秘钥" v-model="secretKey" width="300px" type="password" />
+        </div>
+      </template>
+      <template #buttons>
+        <button class="ma-button" @click="$refs.resourcePush.doSelectAll(true)">全选</button>
+        <button class="ma-button" @click="$refs.resourcePush.doSelectAll(false)">取消全选</button>
+        <button class="ma-button active" @click="() => doPush('increment')">增量推送</button>
+        <button class="ma-button" @click="() => doPush('full')">全量推送</button>
       </template>
     </magic-dialog>
     <magic-search ref="search" style="flex: none"></magic-search>
@@ -71,6 +90,8 @@ import store from '@/scripts/store.js'
 import request from '@/api/request.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
+import MagicFile from '@/components/common/magic-file.vue'
+import MagicResourceChoose from '@/components/resources/magic-resource-choose.vue'
 import MagicSearch from './magic-search.vue'
 
 export default {
@@ -78,7 +99,9 @@ export default {
   components: {
     MagicDialog,
     MagicInput,
-    MagicSearch
+    MagicSearch,
+    MagicFile,
+    MagicResourceChoose
   },
   props: {
     config: Object,
@@ -91,8 +114,11 @@ export default {
       Themes,
       skinVisible: false,
       showUploadDialog: false,
-      filename: null,
-      skinRight: 15 + ((this.config.header.repo ? 2 : 0) + (this.config.header.qqGroup ? 1 : 0) + (this.config.header.document ? 1 : 0)) * 25 + 'px',
+      showPushDialog: false,
+      exportVisible: false,
+      target: 'http://host:port/_magic-api-sync',
+      secretKey: '123456789',
+      skinRight: 40 + 'px',
     }
   },
   mounted() {
@@ -105,49 +131,104 @@ export default {
     this.switchTheme(store.get('skin') || this.config.defaultTheme || 'default')
   },
   methods: {
-    open(url) {
-      window.open(url)
-    },
     download() {
-      request.send('/download', null, {
-        responseType: 'blob'
-      }).success(blob => {
-        downloadFile(blob, 'magic-api-all.zip')
-      });
+      this.exportVisible = true
+      this.$refs.resourceExport.initData()
     },
-    onFileSelected() {
-      if (this.$refs.file.files[0]) {
-        this.filename = this.$refs.file.files[0].name;
+    remotePush() {
+      this.showPushDialog = true
+      this.$refs.resourcePush.initData()
+    },
+    doExport() {
+      let selected = this.$refs.resourceExport.getSelected()
+      if (selected.length > 0) {
+        bus.$emit('status', `准备导出全部数据`)
+        request.send('/download', JSON.stringify(selected), {
+          method: 'post',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          transformRequest: [],
+          responseType: 'blob'
+        }).success(blob => {
+          downloadFile(blob, 'magic-api.zip')
+          bus.$emit('status', `全部数据已导出完毕`)
+        });
       }
-    },
-    choseFile() {
-      this.$refs.file.click();
     },
     upload() {
       this.showUploadDialog = true;
     },
-    doUpload(force) {
-      let file = this.$refs.file.files[0];
-      if (file) {
-        this.showUploadDialog = false;
-        let formData = new FormData();
-        formData.append('file', file, this.filename);
-        if (force) {
-          formData.append('mode', 'force');
-        }
-        request.send('/upload', formData, {
+    doPush(mode) {
+      let selected = 'full' === mode ? [] : this.$refs.resourcePush.getSelected()
+      let _push = () => {
+        bus.$emit('status', `准备${mode === 'full' ? '全量': '增量'}推送`)
+        request.send('/push', JSON.stringify(selected), {
           method: 'post',
           headers: {
-            'Content-Type': 'multipart/form-data'
-          }
+            'magic-push-target': this.target,
+            'magic-push-secret-key': this.secretKey,
+            'magic-push-mode': mode,
+            'Content-Type': 'application/json'
+          },
+          transformRequest: []
         }).success(() => {
           this.$magicAlert({
-            content: '上传成功!'
+            content: '推送成功!'
           })
-          bus.$emit('refresh-resource')
+          bus.$emit('status', `${mode === 'full' ? '全量': '增量'}推送成功`)
+          this.showPushDialog = false;
         })
-        this.filename = '';
-        this.$refs.file.value = '';
+      }
+      if ('full' === mode) {
+        this.$magicConfirm({
+          title: '远程推送',
+          content: `全量模式推送时，以本地数据为准全量覆盖更新,是否继续？`,
+          ok: '继续',
+          cancel: '取消',
+          onOk: () => {
+            _push()
+          }
+        });
+      } else if (selected.length > 0) {
+        _push()
+      }
+    },
+    doUpload(mode) {
+      let file = this.$refs.uploadFile.getFile();
+      if (file) {
+        let formData = new FormData();
+        formData.append('file', file, file.name);
+        formData.append('mode', mode);
+        let _upload = () => {
+          this.showUploadDialog = false;
+          bus.$emit('status', `准备${mode === 'full' ? '全量': '增量'}上传`)
+          request.send('/upload', formData, {
+            method: 'post',
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          }).success(() => {
+            this.$magicAlert({
+              content: '上传成功!'
+            })
+            bus.$emit('status', `${mode === 'full' ? '全量': '增量'}上传成功`)
+            bus.$emit('refresh-resource')
+          })
+        }
+        if (mode === 'full') {
+          this.$magicConfirm({
+            title: '上传接口',
+            content: `全量模式上传时，以上传的数据为准进行覆盖更新操作，可能会删除其他接口<br>在非全量导出时，建议使用增量更新，是否继续？`,
+            ok: '继续',
+            cancel: '取消',
+            onOk: () => {
+              _upload();
+            }
+          });
+        } else {
+          _upload();
+        }
       }
     },
     switchTheme($theme) {
@@ -161,6 +242,13 @@ export default {
       monaco.editor.setTheme($theme)
       this.$emit('update:themeStyle', this.themeStyle)
     },
+    refresh() {
+      bus.$emit('status', `准备刷新资源`)
+      request.send('refresh').success(() => {
+        bus.$emit('refresh-resource')
+        bus.$emit('status', `刷新资源成功`)
+      })
+    }
   },
   computed: {
     isDisableTest() {
@@ -198,8 +286,7 @@ export default {
   font-size: 0px;
   letter-spacing: 0px;
   background-repeat: no-repeat;
-  background-size: 24px 24px;
-  background-position: 0px 4px;
+  background-position: 4px 7px;
   padding-left: 25px;
 }
 
@@ -249,6 +336,11 @@ export default {
   color: var(--button-run-color);
 }
 
+.ma-header .ma-icon-push {
+  color: var(--button-run-color);
+  font-weight: bold;
+}
+
 .ma-header > span:hover:not(.disabled) {
   background: var(--button-hover-background);
 }
@@ -270,6 +362,12 @@ export default {
 .ma-skin-selector ul li:not(:last-child) {
   border-bottom: 1px solid var(--border-color);
   padding: 2px 5px;
+}
+
+.ma-remote-push-container label {
+  width: 80px;
+  text-align: right;
+  display: inline-block;
 }
 
 ul li {

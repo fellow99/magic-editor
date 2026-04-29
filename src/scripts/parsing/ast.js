@@ -10,8 +10,15 @@ class Node {
         return this.span;
     }
 
-    async getJavaType() {
+    async getJavaType(env) {
+        await this.getExpressionsJavaType(env);
         return 'java.lang.Object';
+    }
+
+    async getExpressionsJavaType(env){
+        for (const expr of this.expressions().filter(it => it)) {
+            await expr.getJavaType(env);
+        }
     }
 
     expressions() {
@@ -30,13 +37,23 @@ class Expression extends Node {
 }
 
 class Literal extends Expression {
-    constructor(span, javaType) {
+    constructor(span, javaType, expressionList) {
         super(span);
         this.javaType = javaType;
+        this.expressionList = expressionList || []
+    }
+
+    expressions() {
+        return this.expressionList
     }
 
     async getJavaType() {
         return this.javaType;
+    }
+
+    getValue(){
+        const text = this.getSpan().getText()
+        return text.replace(/\\\\/g, '\\').replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\t/g, '\t').replace(/\\"/g, '"').replace(/\\'/g, "\'")
     }
 
 }
@@ -50,6 +67,14 @@ class MethodCall extends Node {
 
     expressions() {
         return [this.target, ...this.args]
+    }
+
+    getMethod(){
+        return this.target;
+    }
+
+    getArguments(){
+        return this.args;
     }
 
     async getJavaType(env) {
@@ -80,7 +105,21 @@ class FunctionCall extends Node {
         return [this.target, ...this.args]
     }
 
+    getFunction(){
+        return this.target;
+    }
+
+    getArguments(){
+        return this.args;
+    }
+
     async getJavaType(env) {
+        if(this.target instanceof VariableAccess){
+            const method = JavaClass.findFunction().find(method => method.name === this.target.variable)
+            if(method){
+                return method.returnType
+            }
+        }
         return await this.target.getJavaType(env);
     }
 }
@@ -110,11 +149,26 @@ class MemberAccess extends Node {
         let javaType = await this.target.getJavaType(env);
 
         let clazz = await JavaClass.loadClass(javaType);
-        var methods = clazz.methods;
+        let attributes = clazz?.attributes;
+        const name = this.member.getText()
+        if(attributes) {
+            const attribute = attributes.find(it => it.name === name)
+            if(attribute){
+                return JavaClass.getWrapperClass(attribute.type)
+            }
+        }
+        let enums = clazz?.enums;
+        if(enums) {
+            const e = enums.find(it => it.name === name)
+            if(e){
+                return JavaClass.getWrapperClass(e.type)
+            }
+        }
+        let methods = clazz.methods;
         if (methods) {
             for (let i = 0, len = methods.length; i < len; i++) {
                 let method = methods[i];
-                if (clazz.superClass == 'java.util.HashMap' && method.name == 'get' && method.parameters.length == 1) {
+                if (clazz.superClass === 'java.util.HashMap' && method.name === 'get' && method.parameters.length === 1) {
                     return JavaClass.getWrapperClass(method.returnType);
                 }
             }
@@ -134,7 +188,15 @@ class VariableAccess extends Node {
     }
 
     async getJavaType(env) {
-        return (env && env[this.variable]) || 'java.lang.Object';
+        // @import
+        let value = (env && env[this.variable]);
+        if(!value){
+            let imports = env['@import']
+            for(let i = imports.length - 1; i >= 0 && !value; i--){
+                value = JavaClass.findClass(imports[i] + this.variable);
+            }
+        }
+        return  value|| 'java.lang.Object';
     }
 }
 
@@ -143,6 +205,11 @@ class MapOrArrayAccess extends Node {
         super(span)
         this.target = target
         this.keyOrIndex = keyOrIndex
+    }
+
+    async getJavaType(env) {
+        const javaType = await this.target.getJavaType(env)
+        return javaType === 'db' ? 'db' : super.getJavaType(env);
     }
 }
 
@@ -229,6 +296,29 @@ class Exit extends Node {
     }
 }
 
+class Throw extends Node {
+    constructor(span, value) {
+        super(span)
+        this.value = value
+    }
+
+    expressions() {
+        return [this.value]
+    }
+}
+
+class Assert extends Node {
+    constructor(span, condition, values) {
+        super(span)
+        this.condition = condition
+        this.values = values
+    }
+
+    expressions() {
+        return [this.condition, ...this.values]
+    }
+}
+
 class NewStatement extends Node {
     constructor(span, identifier, parameters) {
         super(span)
@@ -241,7 +331,14 @@ class NewStatement extends Node {
     }
 
     async getJavaType(env) {
-        return env[this.identifier] || 'java.lang.Object';
+        let value = env[this.identifier];
+        if(!value){
+            let imports = env['@import']
+            for(let i = imports.length - 1; i >= 0 && !value; i--){
+                value = JavaClass.findClass(imports[i] + this.identifier);
+            }
+        }
+        return  value|| 'java.lang.Object';
     }
 }
 
@@ -262,24 +359,30 @@ class AsyncCall extends Node {
 
 class UnaryOperation extends Node {
     constructor(operator, operand, atAfter) {
-        super(operator.getSpan())
+        super(new Span(operator.getSpan(), operand.getSpan()))
         this.operand = operand
+        this.operator = operator
         this.atAfter = atAfter
+    }
+
+    async getJavaType(env) {
+        return await this.operand.getJavaType(env);
     }
 
 }
 
 class TryStatement extends Node {
-    constructor(span, exceptionVarNode, tryBlock, catchBlock, finallyBlock) {
+    constructor(span, exceptionVarNode, tryBlock, tryResources, catchBlock, finallyBlock) {
         super(span)
         this.exceptionVarNode = exceptionVarNode;
         this.tryBlock = tryBlock;
+        this.tryResources = tryResources;
         this.catchBlock = catchBlock;
         this.finallyBlock = finallyBlock;
     }
 
     expressions() {
-        return [...this.tryBlock, ...this.catchBlock, ...this.finallyBlock]
+        return [...this.tryBlock, ...this.tryResources, ...this.catchBlock, ...this.finallyBlock]
     }
 }
 
@@ -319,14 +422,29 @@ class Import extends Node {
         this.module = module;
     }
 
+    async getJavaType(env){
+        if(this.packageName.endsWith('.*')) {
+            env['@import'].push(this.packageName.substring(0, this.packageName.length - 1))
+        }else if(this.module){
+            env[this.packageName] = this.packageName
+        }else if(this.varName){
+            env[this.varName] = this.packageName
+        }else {
+            let index = this.packageName.lastIndexOf('.');
+            if (index > -1) {
+                env[this.packageName.substring(index + 1)] = this.packageName
+            }
+        }
+    }
 
 }
 
 class VarDefine extends Node {
-    constructor(span, varName, expression) {
+    constructor(span, varName, expression, defineType) {
         super(span)
         this.varName = varName;
         this.expression = expression;
+        this.defineType = defineType
     }
 
     getVarName() {
@@ -335,6 +453,17 @@ class VarDefine extends Node {
 
     expressions() {
         return this.expression == null ? [] : [this.expression]
+    }
+
+    async getJavaType(env) {
+        let type = 'java.lang.Object'
+        if(this.defineType){
+            type = env[this.defineType] || type
+        }else if(this.expression){
+            type = await this.expression.getJavaType(env);
+        }
+        env[this.varName] = type
+        return type
     }
 }
 
@@ -422,35 +551,37 @@ class BinaryOperation extends Node {
     }
 
     async getJavaType(env) {
-        var lType = await this.left.getJavaType(env);
-        var rType = await this.right.getJavaType(env);
-        if (this.operator.type == TokenType.Plus || this.operator.type == TokenType.PlusEqual) {
-            if (lType == 'string' || rType == 'string' || lType == 'java.lang.String' || rType == 'java.lang.String') {
+        let lType = await this.left.getJavaType(env);
+        let rType = await this.right.getJavaType(env);
+        lType = lType.toLowerCase().substring(lType.lastIndexOf(".") + 1)
+        rType = rType.toLowerCase().substring(rType.lastIndexOf(".") + 1)
+        if (this.operator.type === TokenType.Plus || this.operator.type === TokenType.PlusEqual) {
+            if (lType === 'string' || rType === 'string') {
                 return 'java.lang.String';
             }
         }
-        if (this.operator.type == TokenType.Equal || (this.operator.type == TokenType.Assignment && this.linqLevel > 0)) {
+        if (this.operator.type === TokenType.Equal || (this.operator.type === TokenType.Assignment && this.linqLevel > 0)) {
             return 'java.lang.Boolean';
         }
-        if (lType == 'BigDecimal' || rType == 'BigDecimal') {
+        if (lType === 'bigdecimal' || rType === 'bigdecimal') {
             return 'java.math.BigDecimal';
         }
-        if (lType == 'double' || rType == 'double') {
+        if (lType === 'double' || rType === 'double') {
             return 'java.lang.Double';
         }
-        if (lType == 'float' || rType == 'float') {
+        if (lType === 'float' || rType === 'float') {
             return 'java.lang.Float';
         }
-        if (lType == 'long' || rType == 'long') {
+        if (lType === 'long' || rType === 'long') {
             return 'java.lang.Long';
         }
-        if (lType == 'int' || rType == 'int') {
+        if (lType === 'integer' || rType === 'integer') {
             return 'java.lang.Integer';
         }
-        if (lType == 'short' || rType == 'short') {
+        if (lType === 'short' || rType === 'short') {
             return 'java.lang.Short';
         }
-        if (lType == 'byte' || rType == 'byte') {
+        if (lType === 'byte' || rType === 'byte') {
             return 'java.lang.Byte';
         }
         return 'java.lang.Object';
@@ -534,7 +665,7 @@ class ClassConverter extends Expression {
 }
 
 class LinqSelect extends Expression {
-    constructor(span, fields, from, joins, where, groups, having, orders) {
+    constructor(span, fields, from, joins, where, groups, having, orders, limit, offset) {
         super(span)
         this.fields = fields;
         this.from = from;
@@ -543,6 +674,8 @@ class LinqSelect extends Expression {
         this.groups = groups;
         this.having = having;
         this.orders = orders;
+        this.limit = limit;
+        this.offset = offset;
     }
 
     expressions() {
@@ -553,7 +686,7 @@ class LinqSelect extends Expression {
         if (this.having) {
             temp.push(this.having)
         }
-        return [...this.fields, this.from, ...this.joins, ...this.groups, ...temp, ...this.orders];
+        return [...this.fields, this.from, ...this.joins, ...this.groups, ...temp, ...this.orders, this.limit, this.offset];
     }
 
     async getJavaType() {
@@ -566,6 +699,7 @@ export {
     Node,
     Expression,
     Literal,
+    Assert,
     MethodCall,
     FunctionCall,
     MemberAccess,
@@ -596,5 +730,6 @@ export {
     LinqSelect,
     WholeLiteral,
     ClassConverter,
-    LanguageExpression
+    LanguageExpression,
+    Throw
 }

@@ -1,11 +1,15 @@
 <template>
   <div class="ma-options">
     <div class="ma-layout">
+      <div class="not-select ma-sider">
+        <div @click="addRow"><i class="ma-icon ma-icon-plus"/></div>
+        <div @click="removeRow"><i class="ma-icon ma-icon-minus"/></div>
+      </div>
       <div class="ma-layout-container">
         <div class="ma-header ma-table-row">
-          <div>Key</div>
-          <div>Value</div>
-          <div>Description</div>
+          <div>键</div>
+          <div>值</div>
+          <div>描述</div>
         </div>
         <div class="ma-content">
           <div v-for="(item, key) in info.option" :key="'request_parameter_' + key" class="ma-table-row">
@@ -23,10 +27,6 @@
           </div>
         </div>
       </div>
-      <div class="not-select ma-sider">
-        <div @click="addRow"><i class="ma-icon ma-icon-plus"/></div>
-        <div @click="removeRow"><i class="ma-icon ma-icon-minus"/></div>
-      </div>
     </div>
   </div>
 </template>
@@ -35,6 +35,7 @@
 import request from '@/api/request.js'
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicSelect from '@/components/common/magic-select.vue'
+import contants from "@/scripts/contants.js"
 
 export default {
   name: 'MagicOption',
@@ -55,7 +56,9 @@ export default {
   mounted() {
     let map = {}
       request.send('/options').success(data => {
-        this.defaultOptions = data.map(e => {
+        data = data || []
+        data = data.concat(contants.OPTIONS)
+        this.defaultOptions = data&&data.map(e => {
           let item = {text: e[0], value: e[0], description: e[1], defaultValue: e[2]}
           this.optionsMap[item.value] = item;
           return item;
@@ -67,7 +70,6 @@ export default {
       if (this.info.option[index]) {
         this.info.option[index].name = value;
         let item = this.optionsMap[value];
-        console.log(this.optionsMap,value);
         if (item) {
           if (item.description) {
             this.info.option[index].description = item.description

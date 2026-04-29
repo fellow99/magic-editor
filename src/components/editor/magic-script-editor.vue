@@ -4,14 +4,22 @@
       <ul ref="scrollbar" class="ma-tab not-select">
         <li
             v-for="(item, index) in scripts"
-            :key="'api_' + item.tmp_id || item.id"
-            :class="{ selected: selected === item }"
-            :title="item.name"
+            :key="'opened_script_' + index"
+            :class="{ selected: selected === item, draggableTargetItem: item.ext.tabDraggable }"
+            :title="item.displayName || item.name"
+            :id="'ma-tab-item-' + item.tmp_id"
             @click="open(item)" @contextmenu.prevent="e => tabsContextmenuHandle(e, item, index)"
+            @mousedown.middle.stop="close(item.id || item.tmp_id)"
+            :draggable="true"
+            @dragenter="e => tabDraggable(item, e, 'dragenter')"
+            @dragstart.stop="e => tabDraggable(item, e, 'dragstart')"
+            @dragend.stop="e => tabDraggable(item, e, 'dragend')"
+            @dragover.prevent
         >
-          <i class="ma-svg-icon" v-if="item._type === 'api'" :class="['request-method-' + item.method]" />
-          <i class="ma-svg-icon" v-if="item._type !== 'api'" :class="['icon-function']" />
-          {{item.name}}
+          <magic-text-icon v-if="item._type === 'api'" v-model="item.method" style="margin-top: -4px"/>
+          <magic-text-icon v-if="item._type !== 'api'" value="function" style="margin-top: -4px"/>
+          {{item.displayName || item.name}}<i class="ma-icon ma-icon-lock" v-if="item.lock === '1'" />
+          <span v-show="!item.id || item.script !== item.ext.tmpScript">*</span>
           <i class="ma-icon ma-icon-close" @click.stop="close(item.id || item.tmp_id)"/>
         </li>
       </ul>
@@ -25,13 +33,15 @@
           测试<em>Ctrl + Q</em><br/>
           代码提示<em>Alt + /</em><br/>
           恢复断点<em>F8</em><br/>
-          步进<em>F6</em>
+          步进<em>F6</em><br/>
+          代码格式化<em>Ctrl + Alt + L</em><br/>
+          最近打开<em>Ctrl + E</em>
         </p>
       </div>
     </div>
 
-    <magic-dialog :moveable="false" :title="'历史记录：' + (info && info.name)" :value="showHsitoryDialog"
-                  align="right" height="750px" maxWidth="inherit" padding="none" width="80%"
+    <magic-dialog :title="'历史记录：' + (info && info.name)" :value="showHsitoryDialog"
+                  align="right" height="550px" maxWidth="inherit" padding="none" width="1100px" :moveable="false"
                   @onClose="showHsitoryDialog = false">
       <template #content>
         <magic-history ref="history"/>
@@ -51,14 +61,6 @@
         <button class="ma-button" @click="showHsitoryDialog = false">关闭</button>
       </template>
     </magic-dialog>
-    <magic-dialog :value="showImageDialog" title="图片结果" @onClose="showImageDialog = false">
-      <template #content>
-        <p align="center"><img :src="imageUrl"/></p>
-      </template>
-      <template #buttons>
-        <button class="ma-button" @click="showImageDialog = false">OK</button>
-      </template>
-    </magic-dialog>
   </div>
 </template>
 
@@ -76,10 +78,15 @@ import {Parser} from '@/scripts/parsing/parser.js'
 import tokenizer from '@/scripts/parsing/tokenizer.js'
 import {TokenStream} from '@/scripts/parsing/index.js'
 import RequestParameter from '@/scripts/editor/request-parameter.js';
+import { CommandsRegistry } from 'monaco-editor/esm/vs/platform/commands/common/commands'
+import { KeybindingsRegistry } from 'monaco-editor/esm/vs/platform/keybinding/common/keybindingsRegistry.js'
+import { ContextKeyExpr } from 'monaco-editor/esm/vs/platform/contextkey/common/contextkey.js'
+import MagicTextIcon from "@/components/common/magic-text-icon";
 
 export default {
   name: 'MagicScriptEditor',
   components: {
+    MagicTextIcon,
     MagicDialog,
     MagicHistory
   },
@@ -89,21 +96,14 @@ export default {
       selected: null,
       info: null,
       editor: null,
-      showImageDialog: false,
-      imageUrl: '',
-      showHsitoryDialog: false
+      showHsitoryDialog: false,
+      // tab拖拽的item
+      draggableItem: {},
+      draggableTargetItem: {},
     }
   },
   mounted() {
-    let scrollbar = this.$refs.scrollbar
-    let handler = e => {
-      if (scrollbar.contains(e.target)) {
-        let delta = e.wheelDelta || e.detail
-        scrollbar.scrollLeft += delta > 0 ? -100 : 100
-      }
-    }
-    document.addEventListener('DOMMouseScroll', handler, false)
-    document.addEventListener('mousewheel', handler, false)
+    this.addScrollEventListener()
     initializeMagicScript()
     this.editor = monaco.editor.create(this.$refs.editor, {
       minimap: {
@@ -113,7 +113,13 @@ export default {
       folding: true,
       lineDecorationsWidth: 35,
       wordWrap: 'on',
-      theme: store.get('skin') || 'default'
+      theme: store.get('skin') || 'default',
+      fontFamily: contants.EDITOR_FONT_FAMILY,
+      fontSize: contants.EDITOR_FONT_SIZE,
+      fontLigatures: true,
+      renderWhitespace: 'none',
+      // 自动调整大小
+      automaticLayout: true
     })
     this.editor.addAction({
       id: 'editor.action.triggerSuggest.extension',
@@ -122,6 +128,9 @@ export default {
       run: () => {
         this.editor.trigger(null, 'editor.action.triggerSuggest', {})
       }
+    })
+    CommandsRegistry.registerCommand('editor.action.scrollUp1Line', () => {
+      this.editor.setScrollTop(this.editor.getScrollTop() - 22)
     })
     this.editor.addCommand(
         monaco.KeyMod.Alt | monaco.KeyCode.US_SLASH,
@@ -138,6 +147,25 @@ export default {
         },
         '!findWidgetVisible && !inreferenceSearchEditor && !editorHasSelection'
     )
+    const updateKeys = [
+        ['editor.action.triggerParameterHints', monaco.KeyMod.Alt | monaco.KeyCode.US_SLASH],
+        ['editor.action.triggerSuggest', monaco.KeyMod.Alt | monaco.KeyCode.US_SLASH],
+        ['toggleSuggestionDetails', monaco.KeyMod.Alt | monaco.KeyCode.US_SLASH, ContextKeyExpr.deserialize('suggestWidgetVisible && textInputFocus')],
+        ['editor.action.formatDocument', monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KEY_L],
+        ['editor.action.marker.nextInFiles', monaco.KeyMod.CtrlCmd | monaco.KeyCode.F8]
+    ]
+    updateKeys.forEach(item => {
+      let action = item[0]
+      const { handler, when } = CommandsRegistry.getCommand(action) ?? {}
+      if (handler) {
+        let index = KeybindingsRegistry._coreKeybindings.findIndex(it => it.command === action);
+        if(index > 0){
+          KeybindingsRegistry._coreKeybindings.splice(index, 1)
+        }
+        this.editor._standaloneKeybindingService.addDynamicKeybinding(action, item[1], handler, when || item[2])
+      }
+    })
+    KeybindingsRegistry._cachedMergedKeybindings = null;
     this.editor.onMouseDown(e => {
       if (e.target.element.classList.contains('codicon')) {
         return
@@ -192,11 +220,14 @@ export default {
     bus.$on('doTest', this.doTest)
     bus.$on('doContinue', this.doContinue)
     bus.$on('doStepInto', this.doStepInto)
+    bus.$on('logout', this.closeAll)
     bus.$on('ready-delete', () => {
       if (this.info) {
         bus.$emit('delete-api', this.info)
       }
     })
+    bus.$on('ws_breakpoint', rows => this.onBreakpoint(rows[0]))
+    bus.$on('ws_exception', args => this.onException(args[0]))
     let javaTypes = {
       'String': 'java.lang.String',
       'Integer': 'java.lang.Integer',
@@ -222,6 +253,47 @@ export default {
     })
   },
   methods: {
+    onException(args){
+      if (this.info?.ext?.sessionId === args[0]) {
+        let line = args[2]
+        let range = new monaco.Range(line[0], line[2], line[1], line[3] + 1)
+        let decorations = this.editor.deltaDecorations(
+            [],
+            [{
+              range,
+              options: {
+                hoverMessage: {
+                  value: args[1]
+                },
+                inlineClassName: 'squiggly-error'
+              }
+            }])
+        this.editor.revealRangeInCenter(range)
+        this.editor.focus()
+        if (contants.DECORATION_TIMEOUT >= 0) {
+          setTimeout(() => this.editor.deltaDecorations(decorations, []), contants.DECORATION_TIMEOUT)
+        }
+      }
+    },
+    onBreakpoint(data){
+      bus.$emit('status', '进入断点...')
+      // 进入断点
+      this.info.ext.debuging = true
+
+      this.info.ext.variables = data.variables
+      let range = data.range
+      let decoration = {
+        range: new monaco.Range(range[0], 1, range[0], 1),
+        options: {
+          isWholeLine: true,
+          inlineClassName: 'debug-line',
+          className: 'debug-line'
+        }
+      }
+      this.info.ext.debugDecoration = decoration
+      this.info.ext.debugDecorations = [this.editor.deltaDecorations([], [decoration])]
+      bus.$emit('switch-tab', 'debug')
+    },
     doValidate() {
       try {
         let parser = new Parser(new TokenStream(tokenizer(this.editor.getValue())))
@@ -274,7 +346,9 @@ export default {
           debugDecoration: null,
           save: true,
           loading: false,
-          scrollTop: 0
+          scrollTop: 0,
+          tmpScript: null, // 缓存一个未修改前的脚本
+          tabDraggable: false // tab拖拽
         })
       }
       if (item.ext.loading) {
@@ -283,13 +357,13 @@ export default {
       if (item.copy !== true && (info || isNew)) {
         if (isNew) {
           if (isApi) {
-            item.headers = item.headers || []
-            item.option = item.option || []
-            item.paths = item.paths || []
-            item.requestBody = item.requestBody || '';
-            item.method = contants.API_DEFAULT_METHOD
+            this.$set(item, 'headers', item.headers || [])
+            this.$set(item, 'option', item.option || [])
+            this.$set(item, 'paths', item.paths || [])
+            this.$set(item, 'requestBody', item.requestBody || '')
+            this.$set(item, 'method', contants.API_DEFAULT_METHOD)
           }
-          item.parameters = item.parameters || []
+          this.$set(item, 'parameters', item.parameters || [])
           item.ext.save = false
           this.scripts.push(item)
         } else if (info) {
@@ -326,46 +400,81 @@ export default {
           if (isApi) {
             if (!Array.isArray(item.parameters)) {
               // v0.5.0以下版本处理
-              item.option = process(JSON.parse(data.option || '[]'))
+              this.$set(item, 'option', process(JSON.parse(data.option || '[]')))
             } else {
-              item.option = JSON.parse(data.option || '[]')
+              this.$set(item, 'option', JSON.parse(data.option || '[]'))
             }
-            item.parameters = data.parameters;
-            item.headers = data.headers;
-            item.paths = data.paths;
-            item.responseHeader = JSON.parse(data.responseHeader || '[]')
-            item.responseBody = data.responseBody
-            item.method = data.method
+            this.$set(item, 'parameters', data.parameters)
+            this.$set(item, 'headers', data.headers)
+            this.$set(item, 'paths', data.paths)
+            this.$set(item, 'responseHeader', JSON.parse(data.responseHeader || '[]'))
+            this.$set(item, 'responseBody', data.responseBody)
+            this.$set(item, 'responseBodyDefinition', data.responseBodyDefinition)
+            this.$set(item, 'requestBodyDefinition', data.requestBodyDefinition)
+            this.$set(item, 'requestBody', data.requestBody)
+            this.$set(item, 'method', data.method)
           }
-          item.script = data.script
-          item.description = data.description
+          this.$set(item, 'script', data.script)
+          item.ext.tmpScript = data.script
+          this.$set(item, 'description', data.description)
           if (item.copy === true) {
             item.id = ''
             item.copy = false
           }
+          this.scripts.forEach(it => {
+            if (it.name == item.name) {
+              it.displayName = it.groupName + '/' + it.name
+              item.displayName = item.groupName + '/' + item.name
+            }
+          })
           this.scripts.push(item)
           this.info = item
           this.editor.setValue(item.script)
           this.editor.setScrollTop(item.ext.scrollTop);
           bus.$emit('opened', item)
+          this.resetRecentOpenedTab()
         }).end(() => {
           item.ext.loading = false;
         })
       }
-      this.layout()
+      // this.layout()
+    },
+    resetRecentOpenedTab(){
+      store.set(contants.RECENT_OPENED_TAB, this.scripts.filter(it => it.id).map(it => it.id))
+    },
+    deleteWrapperProperties(obj){
+      delete obj.ext
+      delete obj.groupName
+      delete obj.groupPath
+      delete obj._type
+      delete obj.level
+      delete obj.tmp_id
     },
     doSaveApi() {
       this.info.headers = this.info.headers || []
       let thisInfo = this.info
       let saveObj = {...this.info}
+      this.deleteWrapperProperties(saveObj)
       delete saveObj.optionMap
-      delete saveObj.ext
+      delete saveObj.responseHeader
+      delete saveObj.running
       // saveObj.responseHeader = JSON.stringify(saveObj.responseHeader)
-      saveObj.parameters = saveObj.parameters.filter(it => it.name)
+      saveObj.parameters = saveObj.parameters.filter(it => it.name).map(it => {
+        if(it.value instanceof FileList){
+          let temp = {...it};
+          delete temp.value;
+          return temp;
+        }
+        return it;
+      })
       saveObj.paths = saveObj.paths.filter(it => it.name)
       saveObj.headers = saveObj.headers.filter(it => it.name)
       saveObj.option = JSON.stringify(saveObj.option)
       // saveObj.requestHeader = JSON.stringify(saveObj.requestHeader.filter(it => it.name))
+      if (contants.config.persistenceResponseBody === false) {
+        delete saveObj.responseBody
+        delete saveObj.responseBodyDefinition
+      }
       return request.send('/save', JSON.stringify(saveObj), {
         method: 'post',
         headers: {
@@ -374,17 +483,20 @@ export default {
         transformRequest: []
       }).success(id => {
         if (saveObj.id) {
-          bus.$emit('script_save')
+          bus.$emit('report','script_save')
         } else {
-          bus.$emit('script_add')
+          bus.$emit('report','script_add')
         }
+        let fullName = utils.replaceURL(`${thisInfo.groupName}/${thisInfo.name}(${thisInfo.groupPath}/${thisInfo.path})`)
+        bus.$emit('status',`接口「${fullName}」已保存`)
         thisInfo.id = id
+        this.info.ext.tmpScript = saveObj.script
       })
     },
     doSaveFunction() {
       let thisInfo = this.info
       let saveObj = {...this.info}
-      delete saveObj.ext
+      this.deleteWrapperProperties(saveObj)
       saveObj.parameters = saveObj.parameters.filter(it => it.name)
       return request.send('/function/save', JSON.stringify(saveObj), {
         method: 'post',
@@ -394,11 +506,14 @@ export default {
         transformRequest: []
       }).success(id => {
         if (saveObj.id) {
-          bus.$emit('function_save')
+          bus.$emit('report','function_save')
         } else {
-          bus.$emit('function_add')
+          bus.$emit('report','function_add')
         }
+        let fullName = utils.replaceURL(`${thisInfo.groupName}/${thisInfo.name}(${thisInfo.groupPath}/${thisInfo.path})`)
+        bus.$emit('status',`函数「${fullName}」已保存`)
         thisInfo.id = id
+        this.info.ext.tmpScript = saveObj.script
       })
     },
     doSave() {
@@ -416,14 +531,18 @@ export default {
           content: '请打开接口在执行测试'
         })
       } else {
-        bus.$emit('switch-tab','request')
         if (this.info.running || this.info._type !== 'api') {
           return
         }
-        if (contants.AUTO_SAVE) {
+        bus.$emit('switch-tab','request')
+        if (contants.AUTO_SAVE && this.info.lock !== '1') {
           // 自动保存
           let resp = this.doSave()
-          resp && resp.end(() => this.internalTest())
+          resp && resp.end((successed) => {
+            if (successed) {
+              this.internalTest()
+            }
+          })
         } else {
           this.internalTest()
         }
@@ -431,7 +550,6 @@ export default {
     },
     internalTest() {
       this.editor.deltaDecorations(this.editor.getModel().getAllDecorations().filter(it => it.options.inlineClassName === 'squiggly-error').map(it => it.id), [])
-      bus.$emit('status', '开始测试...')
       this.$set(this.info, 'running', true)
       let requestConfig = {
         baseURL: contants.SERVER_URL,
@@ -469,54 +587,45 @@ export default {
           .forEach(it => {
             params[it.name] = it.value
           })
-      requestConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded'
-      if (requestConfig.method !== 'POST' || this.info.requestBody) {
-        requestConfig.params = params
-      } else {
-        requestConfig.data = params
-      }
-      if (this.info.requestBody) {
-        try {
-          JSON.parse(this.info.requestBody)
+      if(Object.values(params).some(it => it instanceof FileList)){
+        requestConfig.headers['Content-Type'] = 'multipart/form-data';
+        let formData = new FormData()
+        Object.keys(params).forEach(key => {
+          let value = params[key];
+          if(value instanceof FileList){
+            value.forEach(file => formData.append(key, file, file.name))
+          }else{
+            formData.append(key, value);
+          }
+        });
+        requestConfig.data = formData;
+      }else{
+        requestConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        if (requestConfig.method !== 'POST' || this.info.requestBody) {
           requestConfig.params = params
-          requestConfig.data = this.info.requestBody
-          requestConfig.headers['Content-Type'] = 'application/json'
-          requestConfig.transformRequest = []
-        } catch (e) {
-          this.$magicAlert({
-            content: 'RequestBody 参数有误，请检查！'
-          })
-          this.$set(this.info, 'running', false)
-          return
+        } else {
+          requestConfig.data = params
+        }
+        if (this.info.requestBody) {
+          try {
+            let requestBody = JSON.parse(this.info.requestBody)
+            requestConfig.params = params
+            requestConfig.data = this.info.requestBody
+            requestConfig.headers['Content-Type'] = 'application/json'
+            requestConfig.transformRequest = []
+          } catch (e) {
+            this.$magicAlert({
+              content: 'RequestBody 参数有误，请检查！'
+            })
+            this.$set(this.info, 'running', false)
+            return
+          }
         }
       }
       const info = this.info
-      info.ext.eventSource = request.createConsole()
-      info.ext.eventSource.addEventListener('create', e => {
-        bus.$emit('report', 'run')
-        this.$nextTick(() => this.sendTestRequest(info, requestConfig, e.data))
-      })
-      info.ext.eventSource.addEventListener('log', e => {
-        let row = JSON.parse(e.data)
-        row.timestamp = utils.formatDate(new Date())
-        let throwable = row.throwable;
-        delete row.throwable;
-        info.ext.logs.push(row)
-        if (throwable) {
-          let messages = throwable.replace(/ /g, '&nbsp;').split('\n');
-          for (let i = 0; i < messages.length; i++) {
-            info.ext.logs.push({
-              level: row.level,
-              message: messages[i],
-              throwable: true
-            })
-          }
-        }
-
-      })
-      info.ext.eventSource.addEventListener('close', e => {
-        info.ext.eventSource.close()
-      })
+      info.ext.sessionId = new Date().getTime() + '' + Math.floor(Math.random() * 100000)
+      bus.$emit('message', 'set_session_id', info.ext.sessionId)
+      this.sendTestRequest(info, requestConfig, info.ext.sessionId)
     },
     viewHistory() {
       if (!this.selected) {
@@ -551,16 +660,15 @@ export default {
       }
       let target = this.info
       if (target.ext.debuging) {
+        target.ext.debugDecorations && this.editor.deltaDecorations(target.ext.debugDecorations, [])
         target.ext.debuging = false
         target.ext.variables = []
-        let requestConfig = {
-          ...target.ext.requestConfig
-        }
-        delete requestConfig.data
-        delete requestConfig.params
-        requestConfig.headers[contants.HEADER_REQUEST_CONTINUE] = true
-        requestConfig.headers[contants.HEADER_REQUEST_STEP_INTO] = step === true
-        this.sendTestRequest(target, requestConfig, target.ext.sessionId)
+        bus.$emit('message', 'resume_breakpoint', (step === true ? '1' : '0')+ ',' + this.editor
+          .getModel()
+          .getAllDecorations()
+          .filter(it => it.options.linesDecorationsClassName === 'breakpoints')
+          .map(it => it.range.startLineNumber)
+          .join('|'))
       }
     },
     doStepInto() {
@@ -597,138 +705,69 @@ export default {
           .filter(it => it.options.linesDecorationsClassName === 'breakpoints')
           .map(it => it.range.startLineNumber)
           .join(',')
+      requestConfig.responseType = 'blob'
+      requestConfig.validateStatus = () => true
+      let dataLen = 0
+      let fullName = utils.replaceURL(`${target.groupName}/${target.name}(${target.groupPath}/${target.path})`)
+      requestConfig.transformResponse = [function(data, headers){
+        dataLen = data.size;
+        if(headers['content-disposition']){
+          return new Promise(function(resolve){resolve(data)});
+        }
+        return new Promise(function(resolve){
+          let reader = new FileReader()
+          reader.readAsText(data)
+          reader.onload = function() {
+            try{
+              JSON.parse(this.result)
+              resolve(this.result)
+            }catch(e){
+              resolve(data)
+            }
+          }
+        })
+      }]
+      bus.$emit('status', `开始测试「${fullName}」`)
+      let start = new Date().getTime()
       request
           .execute(requestConfig)
           .then(res => {
-            target.ext.debugDecorations && this.editor.deltaDecorations(target.ext.debugDecorations, [])
-            target.ext.debugDecorations = target.ext.debugDecoration = null
-
-            if (res.headers[contants.HEADER_RESPONSE_WITH_MAGIC_API] === 'true') {
-              let data = res.data
-              if (data.code === contants.RESPONSE_CODE_SCRIPT_ERROR) {
-                bus.$emit('report', 'script_error')
-                bus.$emit('status', '脚本执行出错..')
-                // 脚本执行出错
+            res.data.then(data =>{
+              let unit = ['B','KB','MB'];
+              let index = 0;
+              while(index < unit.length && dataLen >= 1024){
+                dataLen = dataLen / 1024
+                index++;
+              }
+              dataLen = dataLen.toFixed(2);
+              bus.$emit('status', `「${fullName}」测试完毕，状态：<em>${res.status}</em> 大小：<em>${dataLen} ${unit[index]}</em> 耗时：<em>${new Date().getTime() - start} ms</em>`)
+              const contentType = res.headers['content-type']
+              target.ext.debugDecorations && this.editor.deltaDecorations(target.ext.debugDecorations, [])
+              target.ext.debugDecorations = target.ext.debugDecoration = null
+              if (!(data instanceof Blob)) {
                 target.ext.debuging = target.running = false
-                if (data.body) {
-                  let line = data.body
-                  if (this.info.id === target.id) {
-                    let range = new monaco.Range(line[0], line[2], line[1], line[3] + 1)
-                    let decorations = this.editor.deltaDecorations(
-                        [],
-                        [
-                          {
-                            range,
-                            options: {
-                              hoverMessage: {
-                                value: data.message
-                              },
-                              inlineClassName: 'squiggly-error'
-                            }
-                          }
-                        ]
-                    )
-                    this.editor.revealRangeInCenter(range)
-                    this.editor.focus()
-                    if(contants.DECORATION_TIMEOUT >= 0){
-                      setTimeout(() => this.editor.deltaDecorations(decorations, []), contants.DECORATION_TIMEOUT)
-                    }
-                  }
-                }
-                target.responseBody = utils.formatJson(data.data)
+                target.responseBody = utils.formatJson(data)
                 bus.$emit('switch-tab', 'result')
-                bus.$emit('update-response-body', target.responseBody)
-                target.ext.eventSource.close();
-              } else if (data.code == contants.RESPONSE_CODE_DEBUG) {
-                bus.$emit('report', 'debug_in')
-                bus.$emit('status', '进入断点...')
-                // 进入断点
-                target.ext.debuging = true
-
-                target.ext.variables = data.body.variables
-                let range = data.body.range
-                let decoration = {
-                  range: new monaco.Range(range[0], 1, range[0], 1),
-                  options: {
-                    isWholeLine: true,
-                    inlineClassName: 'debug-line',
-                    className: 'debug-line'
-                  }
-                }
-                target.ext.debugDecoration = decoration
-                target.ext.debugDecorations = [this.editor.deltaDecorations([], [decoration])]
-                bus.$emit('switch-tab', 'debug')
+                bus.$emit('update-response-body-definition', target.responseBodyDefinition);
+                bus.$emit('update-response-body', target.responseBody, res.headers)
               } else {
-                bus.$emit('status', '脚本执行完毕')
                 // 执行完毕
                 target.running = false
                 bus.$emit('switch-tab', 'result')
-
-                let contentType = res.headers[contants.HEADER_RESPONSE_MAGIC_CONTENT_TYPE]
-                if (contentType === contants.HEADER_APPLICATION_STREAM) {
-                  // 下载
-                  var disposition = res.headers[contants.HEADER_CONTENT_DISPOSITION]
-                  var filename = 'output'
-                  if (disposition) {
-                    filename = decodeURIComponent(disposition.substring(disposition.indexOf('filename=') + 9))
-                  }
-                  target.responseBody = utils.formatJson({filename})
-                  bus.$emit('update-response-body', target.responseBody)
-                  let a = document.createElement('a')
-                  a.download = filename
-                  let bstr = atob(data.data)
-                  let n = bstr.length
-                  let u8arr = new Uint8Array(n)
-                  while (n--) {
-                    u8arr[n] = bstr.charCodeAt(n)
-                  }
-                  a.href = window.URL.createObjectURL(new Blob([u8arr]))
-                  a.click()
-                  bus.$emit('report', 'output_blob')
-                } else if (contentType && contentType.indexOf('image') === 0) {
-                  // 图片
-                  this.imageUrl = `data:${contentType};base64,${data.data}`
-                  this.showImageDialog = true
-                  target.responseBody = utils.formatJson(data.data)
-                  bus.$emit('update-response-body', target.responseBody)
-                  bus.$emit('report', 'output_image')
-                } else if (data.code == contants.RESPONSE_NO_PERMISSION) {
-                  this.$magicAlert({
-                    title: '无权限',
-                    content: '您没有权限执行测试'
-                  })
-                } else {
-                  target.responseBody = utils.formatJson(data.data)
-                  bus.$emit('update-response-body', target.responseBody)
-                }
-                target.ext.eventSource.close();
+                bus.$emit('update-response-blob', contentType, data, res.headers);
               }
-            } else {
-              target.ext.debuging = target.running = false
-              bus.$emit('switch-tab', 'result')
-              bus.$emit('status', '脚本执行完毕');
-              // TODO 对于拦截器返回的会有警告，暂时先屏蔽掉。
-              // this.$magicAlert({
-              //   title: '警告',
-              //   content: '检测到结果异常，请检查！'
-              // })
-              try {
-                target.ext.eventSource.close();
-                target.responseBody = utils.formatJson(res.data)
-                bus.$emit('update-response-body', target.responseBody)
-              } catch (ignored) {
-              }
-            }
+            })
           })
           .catch(error => {
+            bus.$emit('status', `请求出错：「${fullName}」`)
             target.ext.debuging = target.running = false
-            target.ext.eventSource.close();
             request.processError(error)
           })
     },
     close(id) {
       this.scripts.forEach((item, index) => {
         if (item.id === id || item.tmp_id === id) {
+          bus.$emit('close', item)
           this.scripts.splice(index, 1)
           if (this.selected === item) {
             let info
@@ -747,6 +786,24 @@ export default {
       if (this.scripts.length === 0) {
         bus.$emit('opened', {empty: true})
       }
+      this.scripts.forEach(it => {
+        var equalIndex = 0
+        this.scripts.forEach(item => {
+          if (it.name == item.name) {
+            equalIndex ++
+          }
+        })
+        if (equalIndex == 1) {
+          it.displayName = it.name
+        }
+      })
+      this.resetRecentOpenedTab()
+    },
+    closeAll() {
+      let items = [...this.scripts]
+      items.forEach(element => {
+        this.close(element.id || element.tmp_id)
+      })
     },
     changed(info) {
       if (info && info === this.selected) {
@@ -767,8 +824,17 @@ export default {
         menus: [
           {
             label: '关闭',
+            divided: true,
             onClick: () => {
               this.close(item.id || item.tmp_id)
+            }
+          },
+          {
+            label: '定位',
+            divided: true,
+            icon: 'ma-icon-position',
+            onClick: () => {
+              bus.$emit('position-' + item._type, item.id || item.tmp_id)
             }
           },
           {
@@ -807,17 +873,77 @@ export default {
           {
             label: '全部关闭',
             onClick: () => {
-              let items = [...this.scripts]
-              items.forEach(element => {
-                this.close(element.id || element.tmp_id)
-              })
+              this.closeAll()
             }
           }
         ],
         event,
         zIndex: 9999
       })
-    }
+    },
+    // 添加滚动条的监听事件
+    addScrollEventListener() {
+      // 修改滚轮事件，将y轴变为x轴
+      let scrollbar = this.$refs.scrollbar
+      let handler = e => {
+        if (scrollbar.contains(e.target)) {
+          let delta = e.wheelDelta || e.detail
+          scrollbar.scrollLeft += delta > 0 ? -100 : 100
+        }
+      }
+      document.addEventListener('DOMMouseScroll', handler, false)
+      document.addEventListener('mousewheel', handler, false)
+      // 监听视图大小变化
+      // 观察器的配置（需要观察什么变动）
+      const config = { attributes: true, childList: true, characterData: true, subtree: true }
+      // 创建一个观察器实例并传入回调函数
+      this.mutationObserver = new MutationObserver(() => {
+        // 控制滚动聚焦选中的tab
+        if (this.selected) {
+          this.$nextTick(() => {
+            const $scrollRect = scrollbar.getBoundingClientRect()
+            const $itemDom = document.getElementById('ma-tab-item-' + this.selected.tmp_id)
+            if ($itemDom) {
+              // const $itemRect = $itemDom.getBoundingClientRect()
+              // if ($itemRect.left < $scrollRect.left) {
+              //   scrollbar.scrollLeft += $itemRect.left - $scrollRect.left
+              // } else if ($scrollRect.left + $scrollRect.width < $itemRect.left + $itemRect.width) {
+              //   scrollbar.scrollLeft += $itemRect.left + $itemRect.width - $scrollRect.left - $scrollRect.width
+              // }
+              $itemDom.scrollIntoView(true)
+            }
+          })
+        }
+      })
+      // 以上述配置开始观察目标节点
+      this.mutationObserver.observe(this.$refs.scrollbar, config)
+    },
+    tabDraggable(item, event, type) {
+      switch (type) {
+        // 开始拖拽
+        case 'dragstart':
+          this.draggableItem = item
+          break
+        // 拖拽到某个元素上
+        case 'dragenter':
+          if (this.draggableTargetItem.ext) {
+            this.draggableTargetItem.ext.tabDraggable = false
+          }
+          this.draggableTargetItem = item
+          this.draggableTargetItem.ext.tabDraggable = true
+          break
+        // 结束拖拽
+        case 'dragend':
+          if (this.draggableItem.tmp_id !== this.draggableTargetItem.tmp_id) {
+            const itemIndex = this.scripts.indexOf(this.draggableItem)
+            const targetIndex = this.scripts.indexOf(this.draggableTargetItem)
+            this.scripts.splice(itemIndex, 1)
+            this.scripts.splice(targetIndex, 0, this.draggableItem)
+          }
+          this.draggableTargetItem.ext.tabDraggable = false
+          break
+      }
+    },
   }
 }
 </script>
@@ -846,15 +972,10 @@ export default {
   font-size: 16px;
   padding-right: 3px;
 }
-.ma-wrapper .ma-tab .ma-svg-icon{
-  height: 16px;
-  margin-left: 0;
-}
-
 .ma-hot-key {
   position: absolute;
   top: 50%;
-  margin-top: -60px;
+  margin-top: -105px;
   text-align: center;
   color: var(--empty-color);
   font-size: 16px;
@@ -910,16 +1031,19 @@ ul li.selected {
   color: var(--selected-color);
 }
 
-ul li:hover {
+ul li:hover,
+ul li.draggableTargetItem {
   background: var(--hover-background);
 }
 
-ul li i {
+ul li i:not(.ma-icon-lock) {
   color: var(--icon-color);
   margin-left: 5px;
   font-size: 0.5em;
 }
-
+.ma-icon-lock{
+  margin-left: 5px;
+}
 .ma-editor-container > div {
   flex: 1;
 }

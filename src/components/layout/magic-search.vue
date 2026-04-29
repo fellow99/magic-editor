@@ -35,6 +35,8 @@ import request from '@/api/request.js'
 import bus from '@/scripts/bus.js'
 import { TokenizationRegistry } from 'monaco-editor/esm/vs/editor/common/modes.js'
 import { tokenizeToString } from 'monaco-editor/esm/vs/editor/common/modes/textToHtmlTokenizer.js'
+import contants from "@/scripts/contants";
+import {replaceKeywords} from "@/scripts/utils";
 export default {
   name: 'MagicSearch',
   components: {
@@ -54,7 +56,7 @@ export default {
   },
   watch: {
     inputText(val) {
-      this.getResult(val)
+      this.getResult(val.trim())
     }
   },
   methods: {
@@ -65,7 +67,7 @@ export default {
       this.showDialog = false
     },
     initEditor() {
-      if (!this.searchEditor) {
+      if (this.searchList.length > 0 && !this.searchEditor) {
         this.searchEditor = monaco.editor.create(document.getElementById('searchEditor'), {
           minimap: {
             enabled: false
@@ -75,7 +77,11 @@ export default {
           lineDecorationsWidth: 0,
           wordWrap: 'on',
           readOnly: true,
+          fontLigatures: true,
           scrollBeyondLastLine: false,
+          renderWhitespace: 'none',
+          fontFamily: contants.EDITOR_FONT_FAMILY,
+          fontSize: contants.EDITOR_FONT_SIZE,
           theme: store.get('skin') || 'default'
         })
       }
@@ -108,7 +114,7 @@ export default {
       clearTimeout(this.searchListFlag)
       if (text) {
         this.searchListFlag = setTimeout(() => {
-          request.send(`search?keyword=${text}`).success(data => {
+          request.send(`search`,{ keyword: text }, { method: 'POST' }).success(data => {
             this.searchList = data
             this.buildSearchList(text)
             if(data && data.length > 0){
@@ -128,7 +134,8 @@ export default {
       this.searchList.forEach(async item => {
         // 增加关键字高亮
         //item.text = item.text.replace(new RegExp(text, 'g'), `<span class="keyword">${text}</span>`)
-        item.text = (await this.getHighlight(item.text)).replace(new RegExp(text, 'g'), `<span class="keyword">${text}</span>`)
+        item.text = replaceKeywords(await this.getHighlight(item.text), text)
+        // item.text = (await this.getHighlight(item.text)).replaceAll(/>(.|\s)*?(?=<\/?\w+[^<]*>)/g, it=> it.replaceAll(text, `<span class="keyword">${text}</span>`))
         if (item.type === 1) {
           item.cache = $parent.apiList.getItemById(item.id)
         } else if (item.type === 2) {
@@ -183,6 +190,9 @@ export default {
 </script>
 
 <style>
+.ma-search-container{
+  overflow: hidden;
+}
 .ma-search-container .ma-search-result-container {
   overflow: auto;
   height: 200px;

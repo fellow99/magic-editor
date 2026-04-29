@@ -1,13 +1,13 @@
 <template>
   <div class="ma-history">
     <ul class="not-select">
-      <li v-for="(item, key) in timestampes" :key="'history_' + key" :class="{ selected: currentItem == item }"
+      <li v-for="(item, key) in timestampes" :key="'history_' + key" :class="{ selected: currentItem === item }"
           @click.stop="open(item)">
-        {{ item.dateTime }}
+        {{ item.dateTime }} ({{item.createBy || 'guest'}})
       </li>
     </ul>
     <div class="version">
-      <span class="version-time">{{ currentItem.dateTime }}</span>
+      <span class="version-time">{{ currentItem.dateTime }} ({{ currentItem.createBy || 'guest'}})</span>
       <span class="current">当前版本</span>
     </div>
     <div ref="diffEditor" class="diff-editor"></div>
@@ -19,6 +19,7 @@ import * as monaco from 'monaco-editor'
 import bus from '@/scripts/bus.js'
 import {formatDate, isVisible} from '@/scripts/utils.js'
 import request from '@/api/request.js'
+import contants from "@/scripts/contants";
 
 export default {
   name: 'MagicHistory',
@@ -43,6 +44,10 @@ export default {
       folding: false,
       lineDecorationsWidth: 20,
       fixedOverflowWidgets: false,
+      renderWhitespace: 'none',
+      fontFamily: contants.EDITOR_FONT_FAMILY,
+      fontSize: contants.EDITOR_FONT_SIZE,
+      fontLigatures: true
     })
     bus.$on('update-window-size', this.layout)
   },
@@ -55,6 +60,7 @@ export default {
             timestamp: item.timestamp,
           })
           .success((info) => {
+            info = JSON.parse(info.content)
             this.originalModel = monaco.editor.createModel(info.script, 'magicscript');
             this.diffEditor.setModel({
               original: this.originalModel,
@@ -70,7 +76,7 @@ export default {
       this.scriptModel = monaco.editor.createModel(this.scriptEditor.getValue(), 'magicscript')
       this.originalModel = this.scriptModel;
       this.timestampes = timestampes.map((t) => {
-        return {id: item.id, timestamp: t, dateTime: formatDate(Number(t))}
+        return {id: item.id, timestamp: t.createDate, dateTime: formatDate(t.createDate * 1), createBy: t.createBy}
       })
       if (this.timestampes.length > 0) {
         this.open(this.timestampes[0])
@@ -95,14 +101,14 @@ export default {
   overflow: auto;
   position: relative;
   width: 100%;
-  height: 685px;
+  height: 485px;
   border-top: 1px solid var(--border-color);
 }
 
 .ma-history ul {
   position: absolute;
   left: 0px;
-  width: 160px;
+  width: 210px;
   bottom: 5px;
   top: 0px;
   color: var(--color);
@@ -115,6 +121,7 @@ export default {
   height: 20px;
   line-height: 20px;
   padding-left: 5px;
+  white-space: nowrap;
 }
 
 .ma-history ul li:hover,
@@ -125,7 +132,7 @@ export default {
 
 .ma-history .version {
   position: absolute;
-  left: 160px;
+  left: 210px;
   right: 0px;
   line-height: 24px;
   height: 24px;
@@ -143,7 +150,7 @@ export default {
 
 .ma-history .diff-editor {
   position: absolute;
-  left: 160px;
+  left: 210px;
   right: 0px;
   top: 24px;
   bottom: 5px;

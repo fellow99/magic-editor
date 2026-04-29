@@ -19,8 +19,10 @@
       <!-- 底部区域 -->
       <magic-options />
     </div>
+    <!-- 最近打开 -->
+    <magic-recent-opened />
     <!-- 状态条 -->
-    <magic-status-bar />
+    <magic-status-bar :config="config" />
   </div>
 </template>
 
@@ -37,12 +39,14 @@ import MagicApiList from './resources/magic-api-list.vue'
 import MagicFunctionList from './resources/magic-function-list.vue'
 import MagicDatasourceList from './resources/magic-datasource-list.vue'
 import MagicScriptEditor from './editor/magic-script-editor.vue'
+import MagicRecentOpened from './resources/magic-recent-opened.vue'
 import request from '@/api/request.js'
 import contants from '@/scripts/contants.js'
+import MagicWebSocket from '@/scripts/websocket.js'
 import store from '@/scripts/store.js'
 import Key from '@/scripts/hotkey.js'
-import { replaceURL } from '@/scripts/utils.js'
-import { defineTheme } from '@/scripts/editor/theme.js'
+import {getQueryVariable, replaceURL} from '@/scripts/utils.js'
+import {defineTheme} from '@/scripts/editor/theme.js'
 import defaultTheme from '@/scripts/editor/default-theme.js'
 import darkTheme from '@/scripts/editor/dark-theme.js'
 import JavaClass from '@/scripts/editor/java-class.js'
@@ -74,27 +78,58 @@ export default {
     MagicOptions,
     MagicLoading,
     MagicLogin,
-    MagicDatasourceList
+    MagicDatasourceList,
+    MagicRecentOpened
   },
   data() {
     return {
       loading: true,
-      toolbars: ['接口列表', '函数列表', '数据源管理'],
+      toolbars: ['接口', '函数', '数据源'],
       toolbarIndex: 0,
       toolboxWidth: 'auto', //工具条宽度
       themeStyle: {},
       showLogin: false,
+      websocket: null,
       onLogin: () => {
         this.showLogin = false
-        this.$refs.apiList.initData()
-        this.$refs.functionList.initData()
-        this.$refs.datasourceList.initData()
+        Promise.all([
+          this.$refs.apiList.initData(),
+          this.$refs.functionList.initData(),
+          this.$refs.datasourceList.initData()
+        ]).then(()=>{
+          bus.$emit('login')
+        })
       }
     }
   },
   beforeMount() {
     contants.BASE_URL = this.config.baseURL || ''
     contants.SERVER_URL = this.config.serverURL || ''
+    let link = `${location.protocol}//${location.host}${location.pathname}`.replace('/index.html', '');
+    if (contants.BASE_URL.startsWith('http')) { // http开头
+      link = contants.BASE_URL
+    } else if (contants.BASE_URL.startsWith('/')) { // / 开头的
+      link = `${location.protocol}/${location.host}${contants.BASE_URL}`
+    } else {
+      link = link + '/' + contants.BASE_URL
+    }
+    bus.$on('login', () => {
+      this.websocket = new MagicWebSocket(replaceURL(link.replace(/^http/, 'ws') + '/console'))
+    })
+    bus.$on('ws_open', () => bus.$emit('message', 'login', contants.HEADER_MAGIC_TOKEN_VALUE))
+    contants.DEFAULT_EXPAND = this.config.defaultExpand !== false
+    contants.JDBC_DRIVERS = this.config.jdbcDrivers || []
+    contants.DATASOURCE_TYPES = this.config.datasourceTypes || []
+    contants.OPTIONS = this.config.options || []
+    if(this.config.editorFontFamily !== undefined){
+      contants.EDITOR_FONT_FAMILY = this.config.editorFontFamily
+    }
+    if(this.config.editorFontSize !== undefined){
+      contants.EDITOR_FONT_SIZE = this.config.editorFontSize
+    }
+    if(this.config.logMaxRows !== undefined){
+      contants.LOG_MAX_ROWS = Math.max(this.config.logMaxRows, 10)
+    }
     this.config.version = contants.MAGIC_API_VERSION_TEXT
     this.config.title = this.config.title || 'magic-api'
     this.config.themes = this.config.themes || {}
@@ -157,7 +192,9 @@ export default {
       window.onbeforeunload = () => '系统可能不会保存您所做的更改。'
     }
     this.bindKey()
-    Promise.all([JavaClass.initClasses(), JavaClass.initImportClass(), this.loadConfig()])
+    JavaClass.initClasses()
+    JavaClass.initImportClass()
+    Promise.all([this.loadConfig()])
       .then(e => {
         this.hideLoading()
         this.login()
@@ -179,10 +216,25 @@ export default {
         this.toolbarIndex = 1
       }
     })
+    bus.$on('logout', () => {
+      this.showLogin = true
+      this.websocket.close()
+    })
+    bus.$on('showLogin', () => this.showLogin = true)
+    bus.$on('position-api', (id) => {
+      this.toolbarIndex = 0
+      this.$refs.apiList.position(id)
+    })
+    bus.$on('position-function', (id) => {
+      this.toolbarIndex = 1
+      this.$refs.functionList.position(id)
+    })
+    this.open()
   },
   destroyed() {
     bus.$off();
     Key.unbind();
+    this.websocket.close();
   },
   methods: {
     // 隐藏loading
@@ -205,21 +257,27 @@ export default {
     },
     async loadConfig() {
       request
-        .execute({ url: '/config.json' })
-        .then(res => {
-          contants.config = res.data
-          // 如果在jar中引用，需要处理一下SERVER_URL
-          if (this.config.inJar && location.href.indexOf(res.data.web) > -1) {
-            let host = location.href.substring(0, location.href.indexOf(res.data.web))
-            contants.SERVER_URL = replaceURL(host + '/' + (res.data.prefix || ''))
-          }
-        })
-        .catch(e => {
-          this.$magicAlert({
-            title: '加载配置失败',
-            content: (e.response.status || 'unknow') + ':' + (JSON.stringify(e.response.data) || 'unknow')
+          .execute({url: '/config.json'})
+          .then(res => {
+            contants.config = res.data
+            // 如果在jar中引用，需要处理一下SERVER_URL
+            if (this.config.inJar && location.href.indexOf(res.data.web) > -1) {
+              let host = location.href.substring(0, location.href.indexOf(res.data.web))
+              contants.SERVER_URL = replaceURL(host + '/' + (res.data.prefix || ''))
+            }
+            if(contants.config.version && contants.config.version !== contants.MAGIC_API_VERSION_TEXT){
+              this.$magicAlert({
+                title: '版本检测',
+                content: `检测到前后端版本不一致（前端：${contants.MAGIC_API_VERSION_TEXT} 后端：${contants.config.version}），请检查`
+              })
+            }
           })
-        })
+          .catch(e => {
+            this.$magicAlert({
+              title: '加载配置失败',
+              content: (e.response.status || 'unknow') + ':' + (JSON.stringify(e.response.data) || 'unknow')
+            })
+          })
     },
     doResizeX() {
       let rect = this.$refs.resizer.getBoundingClientRect()
@@ -244,8 +302,10 @@ export default {
     },
     async login() {
       contants.HEADER_MAGIC_TOKEN_VALUE = store.get(contants.HEADER_MAGIC_TOKEN) || contants.HEADER_MAGIC_TOKEN_VALUE
+      bus.$emit('status', '尝试自动登录')
       request.send('/login').success(isLogin => {
         if (isLogin) {
+          bus.$emit('status', '自动登录成功')
           this.onLogin()
         } else {
           this.showLogin = true
@@ -253,37 +313,60 @@ export default {
       })
     },
     async checkUpdate() {
-      fetch('https://img.shields.io/maven-central/v/org.ssssssss/magic-api.json')
-        .then(response => {
-          if (response.status === 200) {
-            response.json().then(json => {
-              if (contants.config.version !== json.value.replace('v', '')) {
-                if (json.value !== store.get(contants.IGNORE_VERSION)) {
-                  this.$magicConfirm({
-                    title: '更新提示',
-                    content: `检测到已有新版本${json.value}，是否更新？`,
-                    ok: '更新日志',
-                    cancel: '残忍拒绝',
-                    onOk: () => {
-                      window.open('http://www.ssssssss.org/changelog.html')
-                    },
-                    onCancel: () => {
-                      store.set(contants.IGNORE_VERSION, json.value)
-                    }
-                  })
+      fetch('https://img.shields.io/maven-metadata/v.json?label=maven-central&metadataUrl=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Forg%2Fssssssss%2Fmagic-api%2Fmaven-metadata.xml')
+          .then(response => {
+            if (response.status === 200) {
+              response.json().then(json => {
+                if (contants.config.version !== json.value.replace('v', '')) {
+                  if (json.value !== store.get(contants.IGNORE_VERSION)) {
+                    this.$magicConfirm({
+                      title: '更新提示',
+                      content: `检测到已有新版本${json.value}，是否更新？`,
+                      ok: '更新日志',
+                      cancel: '残忍拒绝',
+                      onOk: () => {
+                        window.open('http://www.ssssssss.org/changelog.html')
+                      },
+                      onCancel: () => {
+                        store.set(contants.IGNORE_VERSION, json.value)
+                      }
+                    })
+                  }
+                  bus.$emit('status', `版本检测完毕，最新版本为：${json.value},建议更新！！`)
+                } else {
+                  bus.$emit('status', `版本检测完毕，当前已是最新版`)
                 }
-                bus.$emit('status', `版本检测完毕，最新版本为：${json.value},建议更新！！`)
-              } else {
-                bus.$emit('status', `版本检测完毕，当前已是最新版`)
-              }
-            })
-          } else {
+              })
+            } else {
+              bus.$emit('status', '版本检测失败')
+            }
+          })
+          .catch(ignore => {
             bus.$emit('status', '版本检测失败')
-          }
+          })
+    },
+    /**
+     * 传入id来打开对应api或者function
+     */
+    open(openIds) {
+      try {
+        JSON.parse(store.get(contants.RECENT_OPENED_TAB)).forEach(id => {
+          this.$refs.apiList.openItemById(id)
+          this.$refs.functionList.openItemById(id)
         })
-        .catch(ignore => {
-          bus.$emit('status', '版本检测失败')
+      } catch (e) {
+        // ignore
+      }
+      openIds = openIds || getQueryVariable('openIds')
+      if (openIds) {
+        if (typeof openIds === 'string') {
+          openIds = openIds.split(',')
+        }
+        openIds.forEach(id => {
+          this.$refs.apiList.openItemById(id)
+          this.$refs.functionList.openItemById(id)
         })
+      }
     }
   },
   watch: {
@@ -334,11 +417,14 @@ export default {
   letter-spacing: 2px;
   text-align: center;
   color: var(--color);
+  border-bottom: 1px solid var(--toolbox-border-color)
 }
 
 .ma-toolbar-container > li > i {
   color: var(--icon-color);
   font-size: 14px;
+  padding-top: 3px;
+  display: inline-block;
 }
 
 .ma-toolbar-container > li:hover {

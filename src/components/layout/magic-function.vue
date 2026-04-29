@@ -9,12 +9,16 @@
       <magic-input :value.sync="info.path" placeholder="请输入函数路径" width="500px"/>
     </div>
     <div class="ma-request-parameters">
-      <ul class="not-select">
+      <ul class="not-select ma-nav-tab">
         <li v-for="(item, key) in navs" :key="'request_item_' + key" :class="{ selected: showIndex === key }"
             @click="showIndex = key;">{{ item }}
         </li>
       </ul>
       <div class="ma-layout">
+        <div v-show="showIndex < 1" class="not-select ma-sider">
+          <div @click="addRow"><i class="ma-icon ma-icon-plus"/></div>
+          <div @click="removeRow"><i class="ma-icon ma-icon-minus"/></div>
+        </div>
         <div v-show="showIndex === 0" class="ma-layout-container">
           <div class="ma-header ma-table-row">
             <div>参数名</div>
@@ -40,10 +44,6 @@
         </div>
         <div v-show="showIndex === 1" class="ma-layout-container" style="overflow: hidden; right: 0">
           <magic-textarea :value.sync="info.description" style="width: 100%; height: 100%; margin: 2px"/>
-        </div>
-        <div v-show="showIndex < 1" class="not-select ma-sider">
-          <div @click="addRow"><i class="ma-icon ma-icon-plus"/></div>
-          <div @click="removeRow"><i class="ma-icon ma-icon-minus"/></div>
         </div>
       </div>
     </div>

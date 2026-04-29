@@ -7,6 +7,9 @@ export default {
             {token: 'number', foreground: '0000FF'},
             {token: 'keyword', foreground: '000080', fontStyle: 'bold'},
             {token: 'string.sql', foreground: '008000'},
+            {token: 'tag.sql', foreground: '0033B3'},
+            {token: 'attribute.name.sql', foreground: '174AD4'},
+            {token: 'attribute.value.sql', foreground: '067D17'},
             {token: 'predefined', foreground: '000000', fontStyle: 'italic'},
             {token: 'operator.sql', foreground: '000080', fontStyle: 'bold'},
             {token: 'key', foreground: '660E7A'},
@@ -17,8 +20,9 @@ export default {
             {token: 'string.invalid', foreground: '008000', background: 'FFCCCC'},
             {token: 'string.escape.invalid', foreground: '008000', background: 'FFCCCC'},
             {token: 'string.escape', foreground: '000080', fontStyle: 'bold'},
-            {token: 'comment', foreground: '808080'},
-            {token: 'comment.doc', foreground: '808080'},
+            {token: 'comment', foreground: '808080', fontStyle: 'italic'},
+            {token: 'comment.doc', foreground: '808080', fontStyle: 'italic'},
+            {token: 'comment.todo', foreground: '008DDE', fontStyle: 'italic'},
             {token: 'string.escape', foreground: '000080'}
         ],
         colors: {

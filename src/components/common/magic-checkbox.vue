@@ -1,7 +1,7 @@
 <template>
-  <div class="ma-checkbox">
+  <div class="ma-checkbox" @click.stop="e=>$emit('click',e)">
     <input :id="cboId" ref="checkbox" type="checkbox" @change="onChange" :checked="value"/>
-    <label :for="cboId"/>
+    <label :for="cboId" :class="{ checkedHalf: checkedHalf&&value }"/>
   </div>
 </template>
 
@@ -10,6 +10,10 @@ export default {
   name: 'MagicCheckbox',
   props: {
     value: {
+      type: [Number,Boolean],
+      default: ()=> false
+    },
+    checkedHalf: {
       type: Boolean,
       default: false
     }
@@ -24,6 +28,7 @@ export default {
   methods: {
     onChange() {
       this.$emit('update:value', this.$refs.checkbox.checked);
+      this.$emit('change', this.$refs.checkbox.checked);
     }
   },
 }
@@ -45,8 +50,9 @@ export default {
   font-size: 12px;
   height: 24px;
   line-height: 24px;
+  width: 24px;
   user-select: none;
-  display: inline;
+  display: inline-block;
 }
 
 .ma-checkbox input + label::after {
@@ -59,7 +65,7 @@ export default {
   line-height: 16px;
   position: absolute;
   top: 2px;
-  left: -10px;
+  left: 3px;
   text-align: center;
   font-size: 12px;
   color: var(--checkbox-text-color);
@@ -69,5 +75,8 @@ export default {
   content: "\2714";
   background-color: var(--checkbox-selected-background);
   border-color: var(--checkbox-selected-border);
+}
+.ma-checkbox input+ label.checkedHalf::after {
+  content: "\2501";
 }
 </style>
