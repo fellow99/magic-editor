@@ -1,0 +1,19 @@
+# Enforce LF line endings to prevent CRLF noise on Windows/macOS
+* text=auto eol=lf
+
+# Binary files — no normalization
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.mp3 binary
+*.mp4 binary
+*.zip binary
+*.gz binary
+*.jar binary
