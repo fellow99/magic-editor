@@ -24,8 +24,14 @@ const config = {
     // 只能用在 'PUT', 'POST' 和 'PATCH' 这几个请求方法
     // 后面数组中的函数必须返回一个字符串，或 ArrayBuffer，或 Stream
     transformRequest: [
-        function (data) {
-            if(data instanceof FormData){
+        function (data, headers) {
+            if (data instanceof FormData) {
+                return data;
+            }
+            // 与 magic-api 2.2.2 对齐：当上层显式声明 text/plain 或 application/json 且 data 已是字符串，
+            // 直接透传（避免 Qs 把 ROT13 / JSON 串再次 form-urlencode）。
+            const ct = headers && (headers['Content-Type'] || headers['content-type']);
+            if (typeof data === 'string' && (ct === 'text/plain' || ct === 'application/json')) {
                 return data;
             }
             return Qs.stringify(data, {
@@ -109,7 +115,9 @@ class HttpRequest {
             ...requestConfig
         }
         _config.headers = _config.headers || {};
-        _config.headers[contants.HEADER_MAGIC_TOKEN] = contants.HEADER_MAGIC_TOKEN_VALUE
+        if (!_config.headers[contants.HEADER_MAGIC_TOKEN]) {
+            _config.headers[contants.HEADER_MAGIC_TOKEN] = contants.HEADER_MAGIC_TOKEN_VALUE
+        }
         return this._axios.request(_config);
     }
 
