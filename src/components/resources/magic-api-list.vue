@@ -113,7 +113,8 @@ import request from '@/api/request.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicGroupChoose from '@/components/resources/magic-group-choose.vue'
-import { replaceURL, download as downloadFile, requestGroup, goToAnchor, deepClone } from '@/scripts/utils.js'
+import { replaceURL, download as downloadFile, goToAnchor, deepClone } from '@/scripts/utils.js'
+import { saveFolder } from '@/api/web.js'
 import contants from '@/scripts/contants.js'
 import Key from '@/scripts/hotkey.js'
 import JavaClass from "@/scripts/editor/java-class.js"
@@ -409,7 +410,7 @@ export default {
             onClick: () => {
               item.parentId = '0'
               bus.$emit('status', `准备移动接口分组「${item.name}」至根节点`)
-              requestGroup('group/update', item).success(data => {
+              saveFolder(item).success(data => {
                 bus.$emit('report', 'group_update')
                 // 先删除移动前的分组
                 this.deleteOrAddGroupToTree(this.tree, item, true)
@@ -626,7 +627,7 @@ export default {
         }
         // id存在发送更新请求，不存在发送新增请求
         if (this.createGroupObj.id) {
-          requestGroup('group/update', this.createGroupObj).success(data => {
+          saveFolder(this.createGroupObj).success(data => {
             bus.$emit('report', 'group_update')
             this.tempGroupObj.name = this.createGroupObj.name
             this.tempGroupObj.path = this.createGroupObj.path
@@ -638,7 +639,7 @@ export default {
             this.tempGroupObj = {}
           })
         } else {
-          requestGroup('group/create', this.createGroupObj).success(data => {
+          saveFolder(this.createGroupObj).success(data => {
             this.createGroupObj.id = data
             this.createGroupObj.folder = true
             this.createGroupObj.paths = []
@@ -843,7 +844,7 @@ export default {
                 let params = JSON.parse(JSON.stringify(this.draggableItem))
                 params.parentId = this.draggableTargetItem.id
                 bus.$emit('status', `准备移动接口分组「${params.name}」`)
-                requestGroup('group/update', params).success(data => {
+                saveFolder(params).success(data => {
                   bus.$emit('report', 'group_update')
                   // 先删除移动前的分组
                   this.deleteOrAddGroupToTree(this.tree, this.draggableItem, true)

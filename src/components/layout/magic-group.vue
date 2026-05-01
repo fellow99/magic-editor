@@ -89,7 +89,7 @@
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicSelect from '@/components/common/magic-select.vue'
 import request from "@/api/request"
-import { requestGroup } from '@/scripts/utils.js'
+import { saveFolder } from '@/api/web.js'
 import bus from "@/scripts/bus"
 import contants from "@/scripts/contants.js"
 
@@ -164,7 +164,7 @@ export default {
       saveObj.paths =  saveObj.paths.filter(it => it.name)
       saveObj.options =  saveObj.options.filter(it => it.name)
       bus.$emit('status', `准备保存分组「${saveObj.name}」`)
-      requestGroup('group/update', saveObj).success(data => {
+      saveFolder(saveObj).success(data => {
         bus.$emit('update-group')
         bus.$emit('report', 'group_update')
         bus.$emit('status', `保存分组「${saveObj.name}」成功!`)

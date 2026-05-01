@@ -113,8 +113,23 @@ export function invalidateResourceTree() {
     _treeCache = null
 }
 
+/**
+ * EP-RES-002 保存分组（2.2.2 起 create/update 合并为单端点）。
+ *
+ * 字段白名单与 1.x utils.requestGroup 保持一致，避免把 children/treeNode 等
+ * UI 侧增补字段误传给后端。
+ */
 export function saveFolder(group) {
-    return postJson('/resource/folder/save', group)
+    const body = {
+        id: group.id,
+        name: group.name,
+        path: group.path,
+        type: group.type,
+        paths: group.paths,
+        options: group.options,
+        parentId: group.parentId
+    }
+    return postJson('/resource/folder/save', body)
 }
 
 export function copyFolder(src, target) {

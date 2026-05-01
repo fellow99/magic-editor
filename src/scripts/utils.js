@@ -1,4 +1,3 @@
-import request from "@/api/request";
 import { Beautifier } from './beautifier/javascript/beautifier.js';
 const replaceURL = (url) => url.replace(/:?\/+/g, e => e.indexOf(':') > -1 ? e : '/');
 const isVisible = (elem) => elem && !!(elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length);
@@ -41,23 +40,6 @@ const download = (blob,filename)=>{
     element.click();
     document.body.removeChild(element);
     window.URL.revokeObjectURL(href)
-}
-const requestGroup = (path, group) => {
-    return request.send(path, JSON.stringify({
-        id: group.id,
-        name: group.name,
-        path: group.path,
-        type: group.type,
-        paths: group.paths,
-        options: group.options,
-        parentId: group.parentId
-    }), {
-        method: 'post',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        transformRequest: []
-    })
 }
 // 判断arr是否为一个数组，返回一个bool值
 const isArray = (arr) => {
@@ -179,4 +161,4 @@ const replaceKeywords = (htmlString, keyword) => {
     replaceMatchResult(textNodes, textList, matchList)
     return div.innerHTML
 }
-export {replaceURL, isVisible, formatJson, formatDate, paddingZero, download, requestGroup, deepClone, goToAnchor, getQueryVariable, replaceKeywords}
+export {replaceURL, isVisible, formatJson, formatDate, paddingZero, download, deepClone, goToAnchor, getQueryVariable, replaceKeywords}
