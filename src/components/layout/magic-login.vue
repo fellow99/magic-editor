@@ -16,7 +16,7 @@
 <script>
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
-import request from '@/api/request.js'
+import { login } from '@/api/web.js'
 import contants from '@/scripts/contants.js'
 import store from '@/scripts/store.js'
 import bus from "@/scripts/bus.js";
@@ -38,10 +38,7 @@ export default {
   },
   methods: {
     doLogin() {
-      request.send('/login', {
-        username: this.username,
-        password: this.password
-      }).success((res, response) => {
+      login(this.username, this.password).success((res, response) => {
         if (res) {
           bus.$emit('status', '登录成功')
           contants.HEADER_MAGIC_TOKEN_VALUE = response.headers[contants.HEADER_MAGIC_TOKEN];

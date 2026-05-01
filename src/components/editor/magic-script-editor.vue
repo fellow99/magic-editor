@@ -70,7 +70,7 @@ import {initializeMagicScript} from '@/scripts/editor/magic-script.js'
 import bus from '@/scripts/bus.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicHistory from './magic-history.vue'
-import request from '@/api/request.js'
+import { getFile, saveFile, listBackupsById } from '@/api/web.js'
 import contants from '@/scripts/contants.js'
 import * as utils from '@/scripts/utils.js'
 import store from '@/scripts/store.js'
@@ -396,7 +396,7 @@ export default {
           return array
         }
         item.ext.loading = true;
-        request.send(`/${isApi ? '' : 'function/'}get?id=${id}`).success(data => {
+        getFile(id).success(data => {
           if (isApi) {
             if (!Array.isArray(item.parameters)) {
               // v0.5.0以下版本处理
@@ -475,13 +475,7 @@ export default {
         delete saveObj.responseBody
         delete saveObj.responseBodyDefinition
       }
-      return request.send('/save', JSON.stringify(saveObj), {
-        method: 'post',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        transformRequest: []
-      }).success(id => {
+      return saveFile('api', saveObj).success(id => {
         if (saveObj.id) {
           bus.$emit('report','script_save')
         } else {
@@ -498,13 +492,7 @@ export default {
       let saveObj = {...this.info}
       this.deleteWrapperProperties(saveObj)
       saveObj.parameters = saveObj.parameters.filter(it => it.name)
-      return request.send('/function/save', JSON.stringify(saveObj), {
-        method: 'post',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        transformRequest: []
-      }).success(id => {
+      return saveFile('function', saveObj).success(id => {
         if (saveObj.id) {
           bus.$emit('report','function_save')
         } else {
@@ -637,12 +625,8 @@ export default {
         })
         return
       }
-      let url = `backups?id=${this.info.id}`;
       let isApi = this.info._type === 'api';
-      if (!isApi) {
-        url = 'function/' + url;
-      }
-      request.send(url).success(timestampes => {
+      listBackupsById(this.info.id).success(timestampes => {
         if (timestampes && timestampes.length > 0) {
           this.$refs.history.load(timestampes, this.info, this.editor, isApi)
           this.showHsitoryDialog = true

@@ -36,7 +36,7 @@
 </template>
 
 <script>
-import request from '@/api/request.js'
+import { listTodo } from '@/api/web.js'
 import bus from '@/scripts/bus.js'
 import MagicTextIcon from "@/components/common/magic-text-icon.vue";
 export default {
@@ -55,7 +55,7 @@ export default {
   methods: {
     getTodoList() {
       this.showLoading = true
-      request.send('todo').success(data => {
+      listTodo().success(data => {
         this.todoList = data
         const $parent = this.$parent.$parent.$parent.$refs
         this.todoList&&this.todoList.forEach(item => {

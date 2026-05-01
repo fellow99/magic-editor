@@ -25,7 +25,7 @@
 
 <script>
 import bus from '@/scripts/bus.js'
-import request from '@/api/request.js'
+import { currentUser, logout } from '@/api/web.js'
 import contants from '@/scripts/contants.js'
 import store from '@/scripts/store.js'
 
@@ -46,7 +46,7 @@ export default {
     bus.$on('status', (message) => this.message = message)
     bus.$on('login',() => {
       bus.$emit('status', '获取当前登录用户信息')
-      request.send('/user').success(user => this.user = user)
+      currentUser().success(user => this.user = user)
     })
   },
   methods: {
@@ -59,7 +59,7 @@ export default {
         title: '注销登录',
         content: `是否要注销登录「${this.user.username}」`,
         onOk: () => {
-          request.send('/logout').success(() => {
+          logout().success(() => {
             this.user = null;
             contants.HEADER_MAGIC_TOKEN_VALUE = 'unauthorization';
             store.remove(contants.HEADER_MAGIC_TOKEN);

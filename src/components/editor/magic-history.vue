@@ -18,7 +18,7 @@
 import * as monaco from 'monaco-editor'
 import bus from '@/scripts/bus.js'
 import {formatDate, isVisible} from '@/scripts/utils.js'
-import request from '@/api/request.js'
+import { getBackupContent } from '@/api/web.js'
 import contants from "@/scripts/contants";
 
 export default {
@@ -54,11 +54,7 @@ export default {
   methods: {
     open(item) {
       this.currentItem = item
-      request
-          .send(this.isApi ? 'backup/get' : 'function/backup/get', {
-            id: item.id,
-            timestamp: item.timestamp,
-          })
+      getBackupContent(item.timestamp, item.id)
           .success((info) => {
             info = JSON.parse(info.content)
             this.originalModel = monaco.editor.createModel(info.script, 'magicscript');

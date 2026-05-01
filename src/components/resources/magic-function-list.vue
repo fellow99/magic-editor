@@ -100,12 +100,11 @@
 <script>
 import bus from '@/scripts/bus.js'
 import MagicTree from '@/components/common/magic-tree.vue'
-import request from '@/api/request.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicGroupChoose from '@/components/resources/magic-group-choose.vue'
 import { replaceURL, goToAnchor, deepClone } from '@/scripts/utils.js'
-import { saveFolder } from '@/api/web.js'
+import { saveFolder, loadResourceTree, getFolderTree, lockFile, unlockFile, copyFolder, deleteResource, moveResource } from '@/api/web.js'
 import JavaClass from '@/scripts/editor/java-class.js'
 import Key from '@/scripts/hotkey.js'
 import contants from '@/scripts/contants.js'
@@ -191,17 +190,32 @@ export default {
       this.tree = []
       bus.$emit('status', '正在初始化函数列表')
       return new Promise((resolve) => {
-        request.send('group/list?type=2').success(data => {
-          this.listGroupData = data || [];
+        loadResourceTree().success(() => {
+          const tree = getFolderTree('function')
+          this.listGroupData = []
+          this.listChildrenData = []
+          const flatten = (nodes) => {
+            if (!nodes) return
+            nodes.forEach(node => {
+              if (node.folder) {
+                this.listGroupData.push(node)
+                if (node.children && node.children.length > 0) {
+                  flatten(node.children)
+                }
+              } else {
+                this.listChildrenData.push(node)
+              }
+            })
+          }
+          if (tree && tree.children) {
+            flatten(tree.children)
+          }
           bus.$emit('status', '函数分组加载完毕')
-          request.send('function/list').success(data => {
-            this.listChildrenData = data || []
-            this.initTreeData()
-            this.openItemById()
-            this.showLoading = false
-            bus.$emit('status', '函数信息加载完毕')
-            resolve()
-          })
+          this.initTreeData()
+          this.openItemById()
+          this.showLoading = false
+          bus.$emit('status', '函数信息加载完毕')
+          resolve()
         })
       })
     },
@@ -456,7 +470,7 @@ export default {
             icon: `ma-icon-${item.lock === '1' ? 'unlock' : 'lock'}`,
             onClick: () => {
               let action = item.lock === '1' ? '解锁函数' : '锁定函数';
-              request.send(item.lock === '1' ? 'function/unlock' : 'function/lock', {id: item.id}).success(data => {
+              (item.lock === '1' ? unlockFile : lockFile)(item.id).success(data => {
                 if (data) {
                   bus.$emit('status', `${action}「${item.name}(${item.path})」`)
                   bus.$emit('report', `function_${item.lock === '1' ? 'unlock' : 'lock'}`)
@@ -497,7 +511,7 @@ export default {
       let target = this.$refs.groupChoose.getSelected()
       if(target && this.srcId){
         this.groupChooseVisible = false
-        request.send('group/copy', { src: this.srcId, target }).success(() => {
+        copyFolder(this.srcId, target).success(() => {
           this.initData();
         })
       }
@@ -510,7 +524,7 @@ export default {
         content: `是否要删除函数「${item.name}(${item.path})」`,
         onOk: () => {
           if (item.id) {
-            request.send('function/delete', {id: item.id}).success(data => {
+            deleteResource(item.id).success(data => {
               if (data) {
                 bus.$emit('status', `函数「${item.name}(${item.path})」已删除`)
                 bus.$emit('report', 'function_delete')
@@ -602,7 +616,7 @@ export default {
         title: '删除函数分组',
         content: `是否要删除函数分组「${item.name}」`,
         onOk: () => {
-          request.send('group/delete', {groupId: item.id}).success(data => {
+          deleteResource(item.id).success(data => {
             if (data) {
               bus.$emit('report', 'group_delete')
               bus.$emit('status', `函数分组「${item.name}」已删除`)
@@ -785,10 +799,7 @@ export default {
               // 移动接口
               // 接口不能在目标分组的第一级children里
               if (this.draggableTargetItem.children.some(item => item.id === this.draggableItem.id) === false) {
-                request.send('function/move', {
-                  id: this.draggableItem.id,
-                  groupId: this.draggableTargetItem.id
-                }).success(data => {
+                moveResource(this.draggableItem.id, this.draggableTargetItem.id).success(data => {
                   // 先删除移动前的接口
                   this.deleteOrAddGroupToTree(this.tree, this.draggableItem, true)
                   // 再把移动后的接口放进去

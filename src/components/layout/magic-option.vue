@@ -32,7 +32,7 @@
 </template>
 
 <script>
-import request from '@/api/request.js'
+import { listOptions } from '@/api/web.js'
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicSelect from '@/components/common/magic-select.vue'
 import contants from "@/scripts/contants.js"
@@ -55,7 +55,7 @@ export default {
   },
   mounted() {
     let map = {}
-      request.send('/options').success(data => {
+      listOptions().success(data => {
         data = data || []
         data = data.concat(contants.OPTIONS)
         this.defaultOptions = data&&data.map(e => {

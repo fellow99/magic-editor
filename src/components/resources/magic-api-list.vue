@@ -109,12 +109,11 @@
 <script>
 import bus from '../../scripts/bus.js'
 import MagicTree from '../common/magic-tree.vue'
-import request from '@/api/request.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicGroupChoose from '@/components/resources/magic-group-choose.vue'
 import { replaceURL, download as downloadFile, goToAnchor, deepClone } from '@/scripts/utils.js'
-import { saveFolder } from '@/api/web.js'
+import { saveFolder, loadResourceTree, getFolderTree, download, lockFile, unlockFile, copyFolder, deleteResource, moveResource } from '@/api/web.js'
 import contants from '@/scripts/contants.js'
 import Key from '@/scripts/hotkey.js'
 import JavaClass from "@/scripts/editor/java-class.js"
@@ -198,17 +197,32 @@ export default {
       this.showLoading = true
       this.tree = []
       return new Promise((resolve) => {
-        request.send('group/list?type=1').success(data => {
-          this.listGroupData = data || []
+        loadResourceTree().success(() => {
+          const tree = getFolderTree('api')
+          this.listGroupData = []
+          this.listChildrenData = []
+          const flatten = (nodes) => {
+            if (!nodes) return
+            nodes.forEach(node => {
+              if (node.folder) {
+                this.listGroupData.push(node)
+                if (node.children && node.children.length > 0) {
+                  flatten(node.children)
+                }
+              } else {
+                this.listChildrenData.push(node)
+              }
+            })
+          }
+          if (tree && tree.children) {
+            flatten(tree.children)
+          }
           bus.$emit('status', '接口分组加载完毕')
-          request.send('list').success(data => {
-            this.listChildrenData = data || []
-            this.initTreeData()
-            this.openItemById()
-            this.showLoading = false
-            bus.$emit('status', '接口信息加载完毕')
-            resolve()
-          })
+          this.initTreeData()
+          this.openItemById()
+          this.showLoading = false
+          bus.$emit('status', '接口信息加载完毕')
+          resolve()
         })
       })
     },
@@ -428,12 +442,7 @@ export default {
             icon: 'ma-icon-download',
             onClick: () => {
               bus.$emit('status', `准备导出接口分组「${item.name}」相关接口`)
-              request.send(`/download?groupId=${item.id}`,null,{
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                responseType: 'blob'
-              }).success(blob => {
+              download(item.id, undefined).success(blob => {
                 downloadFile(blob,`${item.name}.zip`)
                 bus.$emit('status', `接口分组「${item.name}」相关接口已导出`)
               })
@@ -507,7 +516,7 @@ export default {
             icon: `ma-icon-${item.lock === '1' ? 'unlock' : 'lock'}`,
             onClick: () => {
               let action = item.lock === '1' ? '解锁接口' : '锁定接口';
-              request.send(item.lock === '1' ? 'unlock' : 'lock', {id: item.id}).success(data => {
+              (item.lock === '1' ? unlockFile : lockFile)(item.id).success(data => {
                 if (data) {
                   bus.$emit('status', `${action}「${item.name}(${item.path})」`)
                   bus.$emit('report', `api_${item.lock === '1' ? 'unlock' : 'lock'}`)
@@ -571,7 +580,7 @@ export default {
       let target = this.$refs.groupChoose.getSelected()
       if(target && this.srcId){
         this.groupChooseVisible = false
-        request.send('group/copy', { src: this.srcId, target }).success(() => {
+        copyFolder(this.srcId, target).success(() => {
           this.initData();
         })
       }
@@ -584,7 +593,7 @@ export default {
         content: `是否要删除接口「${item.name}(${item.path})」`,
         onOk: () => {
           if (item.id) {
-            request.send('delete', {id: item.id}).success(data => {
+            deleteResource(item.id).success(data => {
               if (data) {
                 bus.$emit('status', `接口「${item.name}(${item.path})」已删除`)
                 bus.$emit('report', 'script_delete')
@@ -680,7 +689,7 @@ export default {
         title: '删除接口分组',
         content: `是否要删除接口分组「${item.name}」`,
         onOk: () => {
-          request.send('group/delete', {groupId: item.id}).success(data => {
+          deleteResource(item.id).success(data => {
             if (data) {
               bus.$emit('report', 'group_delete')
               bus.$emit('status', `接口分组「${item.name}」已删除`)
@@ -866,10 +875,7 @@ export default {
               // 接口不能在目标分组的第一级children里
               if (this.draggableTargetItem.children.some(item => item.id === this.draggableItem.id) === false) {
                 bus.$emit('status', `准备移动接口「${this.draggableItem.name}」`)
-                request.send('api/move', {
-                  id: this.draggableItem.id,
-                  groupId: this.draggableTargetItem.id
-                }).success(data => {
+                moveResource(this.draggableItem.id, this.draggableTargetItem.id).success(data => {
                   // 先删除移动前的接口
                   this.deleteOrAddGroupToTree(this.tree, this.draggableItem, true)
                   // 再把移动后的接口放进去

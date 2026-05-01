@@ -82,7 +82,7 @@
 
 <script>
 import bus from '@/scripts/bus.js'
-import request from '@/api/request.js'
+import { loadResourceTree, getFolderTree, getFile, testDatasource, saveFile, deleteResource } from '@/api/web.js'
 import contants from "@/scripts/contants.js"
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
@@ -170,8 +170,9 @@ export default {
       this.datasources = []
       bus.$emit('status', '正在初始化数据源列表')
       return new Promise((resolve) => {
-        request.send('datasource/list').success(data => {
-          this.datasources = data || [];
+        loadResourceTree().success(() => {
+          const tree = getFolderTree('datasource')
+          this.datasources = (tree && tree.children ? tree.children : []) || [];
           JavaClass.setExtensionAttribute('org.ssssssss.magicapi.modules.SQLModule', this.datasources.filter(it => it.key).map(it => {
             return {
               name: it.key,
@@ -194,7 +195,7 @@ export default {
         })
       }else{
         bus.$emit('status', `加载数据源「${item.name}」详情`)
-        request.send('datasource/detail',{id : item.id}).success(res => {
+        getFile(item.id).success(res => {
           this.datasourceObj = res;
           this.toogleDialog(true)
           bus.$emit('status', `数据源「${item.name}」详情加载完毕`)
@@ -228,13 +229,7 @@ export default {
     },
     doTest(){
       bus.$emit('status', `测试数据源连接...`)
-      request.send('datasource/test',JSON.stringify(this.getDataSourceObj()),{
-        method: 'post',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        transformRequest: []
-      }).success(msg => {
+      testDatasource(this.getDataSourceObj()).success(msg => {
         if(!msg){
           this.$magicAlert({
             content : '连接成功'
@@ -260,16 +255,11 @@ export default {
         })
       }else{
         bus.$emit('status', `保存数据源「${this.datasourceObj.name}」...`)
-        request.send('datasource/save',JSON.stringify(this.getDataSourceObj()),{
-          method: 'post',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          transformRequest: []
-        }).success(dsId => {
+        saveFile('datasource', this.getDataSourceObj()).success(dsId => {
           bus.$emit('status', `数据源「${this.datasourceObj.name}」保存成功`)
           this.showDialog = false;
           this.initDataSourceObj()
+          loadResourceTree(true)
           this.initData();
 
         })
@@ -334,9 +324,10 @@ export default {
         title: '删除数据源',
         content: `是否要删除数据源「${item.name}(${item.key})」`,
         onOk: () => {
-          request.send('datasource/delete', {id: item.id}).success(data => {
+          deleteResource(item.id).success(data => {
             if (data) {
               bus.$emit('status', `数据源「${item.name}(${item.key})」已删除`)
+              loadResourceTree(true)
               this.initData();
             } else {
               this.$magicAlert({content: '删除失败'})

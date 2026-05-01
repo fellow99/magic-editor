@@ -35,7 +35,7 @@
 <script>
 import bus from '../../scripts/bus.js'
 import MagicTree from '../common/magic-tree.vue'
-import request from '@/api/request.js'
+import { loadResourceTree, getFolderTree } from '@/api/web.js'
 import contants from '@/scripts/contants.js'
 import MagicCheckbox from "@/components/common/magic-checkbox.vue";
 import MagicTextIcon from "@/components/common/magic-text-icon.vue";
@@ -86,55 +86,54 @@ export default {
           { id: 'function',_type: 'root', name: '2.函数列表', parentId: 'root', path:'', selected: false, checkedHalf: false},
           { id: 'datasource',_type: 'root', name: '3.数据源', parentId: 'root', path:'', selected: false, checkedHalf: false}
       ]
-      request.send('group/list?type=1').success(data => {
-        data = data || []
-        this.listGroupData.push(...data.map(it => {
+      loadResourceTree().success(() => {
+        const apiTree = getFolderTree('api')
+        const apiGroups = (apiTree && apiTree.folder ? apiTree.folder.children || [] : [])
+        apiGroups.forEach(it => {
           it.parentId = it.parentId == '0' ? 'api' : it.parentId;
           it.selected = false;
           it.checkedHalf = false;
           it._type = 'group';
-          return it;
-        }))
-        request.send('list').success(data => {
-          data = data || []
-          this.listChildrenData.push(...data.map(it => {
-            it._type = 'api';
-            it.selected = false;
-            return it;
-          }))
-          this.initTreeData()
-          this.showLoading--
+          this.listGroupData.push(it)
         })
+        const apiFiles = (apiTree && apiTree.children ? apiTree.children : [])
+        apiFiles.forEach(it => {
+          it._type = 'api';
+          it.selected = false;
+          this.listChildrenData.push(it)
+        })
+        this.initTreeData()
+        this.showLoading--
       })
-      request.send('group/list?type=2').success(data => {
-        data = data || []
-        this.listGroupData.push(...data.map(it => {
+      loadResourceTree().success(() => {
+        const fnTree = getFolderTree('function')
+        const fnGroups = (fnTree && fnTree.folder ? fnTree.folder.children || [] : [])
+        fnGroups.forEach(it => {
           it.parentId = it.parentId == '0' ? 'function' : it.parentId;
           it.selected = false;
           it.checkedHalf = false;
           it._type = 'group'
-          return it;
-        }))
-        request.send('function/list').success(data => {
-          data = data || []
-          this.listChildrenData.push(...data.map(it => {
-            it._type = 'function';
-            it.selected = false;
-            return it;
-          }))
-          this.initTreeData()
-          this.showLoading--
+          this.listGroupData.push(it)
         })
+        const fnFiles = (fnTree && fnTree.children ? fnTree.children : [])
+        fnFiles.forEach(it => {
+          it._type = 'function';
+          it.selected = false;
+          this.listChildrenData.push(it)
+        })
+        this.initTreeData()
+        this.showLoading--
       })
-      request.send('datasource/list').success(data => {
-        data = data || []
-        this.listChildrenData.push(...data.filter(it => it.id).map(it => {
+      loadResourceTree().success(() => {
+        const dsTree = getFolderTree('datasource')
+        const dsFiles = (dsTree && dsTree.children ? dsTree.children : [])
+        dsFiles.filter(it => it.id).forEach(it => {
           it._type = 'datasource';
           it.selected = false;
           it.path = it.key;
           it.groupId = 'datasource'
-          return it;
-        }))
+          this.listChildrenData.push(it)
+        })
         this.initTreeData()
         this.showLoading--
       })

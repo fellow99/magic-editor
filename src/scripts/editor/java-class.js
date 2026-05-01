@@ -1,4 +1,4 @@
-import request from '@/api/request.js'
+import { getClasses, getClassesText, getClass } from '@/api/web.js'
 import contants from '@/scripts/contants.js'
 import {HighLightOptions} from '@/scripts/editor/high-light.js'
 import * as monaco from "monaco-editor";
@@ -53,7 +53,7 @@ const matchTypes = (parameters, args, extension) => {
 }
 const initClasses = function () {
     return new Promise((resolve, reject) => {
-        request.send('classes').success(data => {
+        getClasses().success(data => {
             scriptClass = data.classes || {}
             extensions = data.extensions || {}
             functions = data.functions || []
@@ -69,12 +69,9 @@ const initClasses = function () {
 }
 const initImportClass = () => {
     return new Promise((resolve, reject) => {
-        request.execute({
-            url: 'classes.txt',
-            responseType: 'text'
-        }).then(e => {
+        getClassesText().success(text => {
             const array = [];
-            e.data.split('\n').forEach(item => {
+            (text || '').split('\n').forEach(item => {
                 const tmp = item.split(':')
                 if (tmp.length === 1) {
                     array.push(tmp[0])
@@ -84,9 +81,7 @@ const initImportClass = () => {
             })
             importClass = array
             resolve()
-        }).catch(res => {
-            reject()
-        })
+        }).exception(() => reject()).error(() => reject())
     })
 }
 
@@ -208,8 +203,11 @@ async function loadClass(className) {
     let val = scriptClass[className];
     if (!val) {
         try {
-            let res = await request.execute({url: '/class', data: {className}})
-            let clazzs = res.data.data;
+            const clazzs = await new Promise((resolve, reject) => {
+                getClass(className).success(data => resolve(data || []))
+                    .exception(() => reject())
+                    .error(() => reject())
+            })
             clazzs.forEach(it => {
                 scriptClass[it.className] = it;
             })

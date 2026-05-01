@@ -20,7 +20,7 @@
 <script>
 import bus from '../../scripts/bus.js'
 import MagicTree from '../common/magic-tree.vue'
-import request from '@/api/request.js'
+import { loadResourceTree, getFolderTree } from '@/api/web.js'
 import contants from '@/scripts/contants.js'
 import MagicCheckbox from "@/components/common/magic-checkbox.vue";
 
@@ -72,9 +72,12 @@ export default {
       this.listGroupData = [
           { id: '0',_type: 'root', name: this.rootName, parentId: 'root', path:'', selected: false, checkedHalf: false}
       ]
-      request.send(`group/list?type=${this.type}`).success(data => {
-        data = data || []
-        this.listGroupData.push(...data.map(it => {
+      const typeMap = { '1': 'api', '2': 'function' }
+      const folder = typeMap[this.type]
+      loadResourceTree().success(() => {
+        const tree = getFolderTree(folder)
+        const groups = (tree && tree.folder ? tree.folder.children || [] : [])
+        this.listGroupData.push(...groups.map(it => {
           it.selected = false;
           it.checkedHalf = false;
           it._type = 'group';

@@ -88,8 +88,7 @@
 <script>
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicSelect from '@/components/common/magic-select.vue'
-import request from "@/api/request"
-import { saveFolder } from '@/api/web.js'
+import { saveFolder, listOptions } from '@/api/web.js'
 import bus from "@/scripts/bus"
 import contants from "@/scripts/contants.js"
 
@@ -128,7 +127,7 @@ export default {
   },
   mounted() {
     let map = {}
-    request.send('/options').success(data => {
+    listOptions().success(data => {
       data = data || []
       data = data.concat(contants.OPTIONS)
       this.defaultOptions = data&&data.map(e => {

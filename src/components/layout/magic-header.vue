@@ -87,7 +87,7 @@ import {Themes} from '@/scripts/editor/theme.js'
 import {download as downloadFile} from '@/scripts/utils.js'
 import * as monaco from 'monaco-editor'
 import store from '@/scripts/store.js'
-import request from '@/api/request.js'
+import { download, push, upload, reload } from '@/api/web.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
 import MagicFile from '@/components/common/magic-file.vue'
@@ -143,14 +143,7 @@ export default {
       let selected = this.$refs.resourceExport.getSelected()
       if (selected.length > 0) {
         bus.$emit('status', `准备导出全部数据`)
-        request.send('/download', JSON.stringify(selected), {
-          method: 'post',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          transformRequest: [],
-          responseType: 'blob'
-        }).success(blob => {
+        download(undefined, selected).success(blob => {
           downloadFile(blob, 'magic-api.zip')
           bus.$emit('status', `全部数据已导出完毕`)
         });
@@ -163,16 +156,7 @@ export default {
       let selected = 'full' === mode ? [] : this.$refs.resourcePush.getSelected()
       let _push = () => {
         bus.$emit('status', `准备${mode === 'full' ? '全量': '增量'}推送`)
-        request.send('/push', JSON.stringify(selected), {
-          method: 'post',
-          headers: {
-            'magic-push-target': this.target,
-            'magic-push-secret-key': this.secretKey,
-            'magic-push-mode': mode,
-            'Content-Type': 'application/json'
-          },
-          transformRequest: []
-        }).success(() => {
+        push({ target: this.target, secretKey: this.secretKey, mode }, selected).success(() => {
           this.$magicAlert({
             content: '推送成功!'
           })
@@ -197,18 +181,10 @@ export default {
     doUpload(mode) {
       let file = this.$refs.uploadFile.getFile();
       if (file) {
-        let formData = new FormData();
-        formData.append('file', file, file.name);
-        formData.append('mode', mode);
         let _upload = () => {
           this.showUploadDialog = false;
           bus.$emit('status', `准备${mode === 'full' ? '全量': '增量'}上传`)
-          request.send('/upload', formData, {
-            method: 'post',
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          }).success(() => {
+          upload(file, mode).success(() => {
             this.$magicAlert({
               content: '上传成功!'
             })
@@ -244,7 +220,7 @@ export default {
     },
     refresh() {
       bus.$emit('status', `准备刷新资源`)
-      request.send('refresh').success(() => {
+      reload().success(() => {
         bus.$emit('refresh-resource')
         bus.$emit('status', `刷新资源成功`)
       })

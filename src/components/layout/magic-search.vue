@@ -31,7 +31,7 @@ import * as monaco from 'monaco-editor'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
 import store from '@/scripts/store.js'
-import request from '@/api/request.js'
+import { searchScript, getFile } from '@/api/web.js'
 import bus from '@/scripts/bus.js'
 import { TokenizationRegistry } from 'monaco-editor/esm/vs/editor/common/modes.js'
 import { tokenizeToString } from 'monaco-editor/esm/vs/editor/common/modes/textToHtmlTokenizer.js'
@@ -114,7 +114,7 @@ export default {
       clearTimeout(this.searchListFlag)
       if (text) {
         this.searchListFlag = setTimeout(() => {
-          request.send(`search`,{ keyword: text }, { method: 'POST' }).success(data => {
+          searchScript(text).success(data => {
             this.searchList = data
             this.buildSearchList(text)
             if(data && data.length > 0){
@@ -169,7 +169,7 @@ export default {
     getDetail() {
       // 1接口，2函数
       if (this.selectedItem.id) {
-        request.send(`/${this.selectedItem.type == 1 ? '' : 'function/'}get?id=${this.selectedItem.id}`).success(data => {
+        getFile(this.selectedItem.id).success(data => {
           this.setValue(data.script)
         })
       }
