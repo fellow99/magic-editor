@@ -202,7 +202,14 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       open: false,
-      host: true
+      host: true,
+      proxy: {
+        '/magic': {
+          target: 'http://localhost:9999',
+          changeOrigin: true,
+          ws: true,
+        }
+      }
     }
   }
 })
