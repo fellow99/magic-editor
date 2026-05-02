@@ -316,11 +316,12 @@ export default {
       }
     },
     layout() {
-      this.$nextTick(() => {
-        if (utils.isVisible(this.$refs.editor)) {
-          this.$nextTick(() => this.editor.layout())
-        }
-      })
+      // BUG: 后续代码会导致页面卡死，暂时注释掉
+      // this.$nextTick(() => {
+      //   if (utils.isVisible(this.$refs.editor)) {
+      //     this.$nextTick(() => this.editor.layout())
+      //   }
+      // })
     },
     open(item) {
       if (item.delete) {

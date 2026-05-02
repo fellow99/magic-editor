@@ -61,9 +61,9 @@ const initClasses = function () {
             monaco.languages.setMonarchTokensProvider('magicscript', HighLightOptions);
             resolve()
         }).exception(res => {
-            reject()
+            reject(new Error('Failed to load classes: exception'))
         }).error(res => {
-            reject()
+            reject(new Error('Failed to load classes: error'))
         })
     })
 }
@@ -81,7 +81,7 @@ const initImportClass = () => {
             })
             importClass = array
             resolve()
-        }).exception(() => reject()).error(() => reject())
+        }).exception(() => reject(new Error('Failed to load import classes: exception'))).error(() => reject(new Error('Failed to load import classes: error')))
     })
 }
 
@@ -205,8 +205,8 @@ async function loadClass(className) {
         try {
             const clazzs = await new Promise((resolve, reject) => {
                 getClass(className).success(data => resolve(data || []))
-                    .exception(() => reject())
-                    .error(() => reject())
+                    .exception(() => reject(new Error(`Failed to load class ${className}: exception`)))
+                    .error(() => reject(new Error(`Failed to load class ${className}: error`)))
             })
             clazzs.forEach(it => {
                 scriptClass[it.className] = it;

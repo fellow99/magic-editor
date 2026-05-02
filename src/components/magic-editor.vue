@@ -193,8 +193,8 @@ export default {
       window.onbeforeunload = () => '系统可能不会保存您所做的更改。'
     }
     this.bindKey()
-    JavaClass.initClasses()
-    JavaClass.initImportClass()
+    JavaClass.initClasses().catch(() => {})
+    JavaClass.initImportClass().catch(() => {})
     Promise.all([this.loadConfig()])
       .then(e => {
         this.hideLoading()
@@ -258,7 +258,7 @@ export default {
     },
     async loadConfig() {
       request
-          .execute({url: '/config.json'})
+          .execute({url: '/config.json', method: 'get'})
           .then(res => {
             contants.config = res.data
             // 如果在jar中引用，需要处理一下SERVER_URL

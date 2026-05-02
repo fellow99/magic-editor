@@ -16,6 +16,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import MagicBottomPanel from '@/components/common/magic-bottom-panel.vue'
 import MagicRequest from './magic-request.vue'
 import MagicOption from './magic-option.vue'
@@ -39,22 +40,22 @@ export default {
       selectedTab: '',
       tabs: [],
       apiTabs: [
-        {id: 'request', name: '接口信息', icon: 'parameter', component: MagicRequest},
-        {id: 'options', name: '接口选项', icon: 'options', component: MagicOption},
-        {id: 'result', name: '执行结果', icon: 'run', component: MagicRun},
-        {id: 'debug', name: '调试信息', icon: 'debug-info', component: MagicDebug}
+        {id: 'request', name: '接口信息', icon: 'parameter', component: markRaw(MagicRequest)},
+        {id: 'options', name: '接口选项', icon: 'options', component: markRaw(MagicOption)},
+        {id: 'result', name: '执行结果', icon: 'run', component: markRaw(MagicRun)},
+        {id: 'debug', name: '调试信息', icon: 'debug-info', component: markRaw(MagicDebug)}
       ],
       functionTabs: [
-        {id: 'function', name: '函数信息', icon: 'parameter', component: MagicFunction},
+        {id: 'function', name: '函数信息', icon: 'parameter', component: markRaw(MagicFunction)},
       ],
       apiGroupTabs : [
-        {id: 'group', name: '分组信息', icon: 'parameter', component: MagicGroup}
+        {id: 'group', name: '分组信息', icon: 'parameter', component: markRaw(MagicGroup)}
       ],
       commonTabs: [
-        {id: 'log', name: '运行日志', icon: 'log', component: MagicLog},
-        {id: 'setting', name: '全局参数', icon: 'settings', component: MagicSettings},
-        {id: 'todo', name: 'TODO', icon: 'todo', component: MagicTodo},
-        {id: 'event', name: '事件', icon: 'event', component: MagicEvent, right: true}
+        {id: 'log', name: '运行日志', icon: 'log', component: markRaw(MagicLog)},
+        {id: 'setting', name: '全局参数', icon: 'settings', component: markRaw(MagicSettings)},
+        {id: 'todo', name: 'TODO', icon: 'todo', component: markRaw(MagicTodo)},
+        {id: 'event', name: '事件', icon: 'event', component: markRaw(MagicEvent), right: true}
       ]
     }
   },

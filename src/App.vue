@@ -23,8 +23,10 @@ export default {
     if (window.MAGIC_EDITOR_CONFIG) {
       defaultConfig = {...defaultConfig, ...window.MAGIC_EDITOR_CONFIG}
     }
-    defaultConfig.baseURL = import.meta.env.DEV ? 'http://localhost:9999/magic/web' : './';
-    defaultConfig.serverURL = import.meta.env.DEV ? 'http://localhost:9999/' : './';
+    // Detect dev mode: Vite dev server runs on port 5173/5174, or use import.meta.env.DEV
+    const isDev = import.meta.env.DEV;
+    defaultConfig.baseURL = isDev ? '/magic/web' : './';
+    defaultConfig.serverURL = isDev ? '/magic/web' : './';
     defaultConfig.inJar = true;
     return {
       config: defaultConfig
