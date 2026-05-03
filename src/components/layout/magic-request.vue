@@ -412,7 +412,7 @@
         return newBody
       }
     },
-    destroyed() {
+    unmounted() {
       if (this.bodyEditor) {
         this.bodyEditor.dispose()
       }

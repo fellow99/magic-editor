@@ -232,7 +232,7 @@ export default {
     })
     this.open()
   },
-  destroyed() {
+  unmounted() {
     bus.$off();
     Key.unbind();
     this.websocket.close();

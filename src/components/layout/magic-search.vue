@@ -1,6 +1,6 @@
 <template>
   <div>
-    <magic-dialog title="全局搜索" :value="showDialog" align="right" width="700px" padding="0" @onClose="close()">
+    <magic-dialog title="全局搜索" v-model="showDialog" align="right" width="700px" padding="0" @onClose="close()">
       <template #content>
         <div class="ma-search-container">
           <magic-input v-model="inputText" width="100%" placeholder="请输入关键字进行搜索"></magic-input>
@@ -181,7 +181,7 @@ export default {
       return ''
     }
   },
-  destroyed() {
+  unmounted() {
     if (this.searchEditor) {
       this.searchEditor.dispose()
     }

@@ -40,7 +40,7 @@
       </div>
     </div>
 
-    <magic-dialog :title="'历史记录：' + (info && info.name)" :value="showHsitoryDialog"
+    <magic-dialog :title="'历史记录：' + (info && info.name)" v-model="showHsitoryDialog"
                   align="right" height="550px" maxWidth="inherit" padding="none" width="1100px" :moveable="false"
                   @onClose="showHsitoryDialog = false">
       <template #content>
@@ -337,7 +337,7 @@ export default {
         this.info.ext.scrollTop = this.editor.getScrollTop();
       }
       if (!item.ext) {
-        this.$set(item, 'ext', {
+        item.ext = {
           logs: [],
           debuging: false,
           sessionId: '',
@@ -350,7 +350,7 @@ export default {
           scrollTop: 0,
           tmpScript: null, // 缓存一个未修改前的脚本
           tabDraggable: false // tab拖拽
-        })
+        }
       }
       if (item.ext.loading) {
         return;
@@ -358,13 +358,13 @@ export default {
       if (item.copy !== true && (info || isNew)) {
         if (isNew) {
           if (isApi) {
-            this.$set(item, 'headers', item.headers || [])
-            this.$set(item, 'option', item.option || [])
-            this.$set(item, 'paths', item.paths || [])
-            this.$set(item, 'requestBody', item.requestBody || '')
-            this.$set(item, 'method', contants.API_DEFAULT_METHOD)
+            item.headers = item.headers || []
+            item.option = item.option || []
+            item.paths = item.paths || []
+            item.requestBody = item.requestBody || ''
+            item.method = contants.API_DEFAULT_METHOD
           }
-          this.$set(item, 'parameters', item.parameters || [])
+          item.parameters = item.parameters || []
           item.ext.save = false
           this.scripts.push(item)
         } else if (info) {
@@ -401,23 +401,23 @@ export default {
           if (isApi) {
             if (!Array.isArray(item.parameters)) {
               // v0.5.0以下版本处理
-              this.$set(item, 'option', process(JSON.parse(data.option || '[]')))
+              item.option = process(JSON.parse(data.option || '[]'))
             } else {
-              this.$set(item, 'option', JSON.parse(data.option || '[]'))
+              item.option = JSON.parse(data.option || '[]')
             }
-            this.$set(item, 'parameters', data.parameters)
-            this.$set(item, 'headers', data.headers)
-            this.$set(item, 'paths', data.paths)
-            this.$set(item, 'responseHeader', JSON.parse(data.responseHeader || '[]'))
-            this.$set(item, 'responseBody', data.responseBody)
-            this.$set(item, 'responseBodyDefinition', data.responseBodyDefinition)
-            this.$set(item, 'requestBodyDefinition', data.requestBodyDefinition)
-            this.$set(item, 'requestBody', data.requestBody)
-            this.$set(item, 'method', data.method)
+            item.parameters = data.parameters
+            item.headers = data.headers
+            item.paths = data.paths
+            item.responseHeader = JSON.parse(data.responseHeader || '[]')
+            item.responseBody = data.responseBody
+            item.responseBodyDefinition = data.responseBodyDefinition
+            item.requestBodyDefinition = data.requestBodyDefinition
+            item.requestBody = data.requestBody
+            item.method = data.method
           }
-          this.$set(item, 'script', data.script)
+          item.script = data.script
           item.ext.tmpScript = data.script
-          this.$set(item, 'description', data.description)
+          item.description = data.description
           if (item.copy === true) {
             item.id = ''
             item.copy = false
@@ -539,7 +539,7 @@ export default {
     },
     internalTest() {
       this.editor.deltaDecorations(this.editor.getModel().getAllDecorations().filter(it => it.options.inlineClassName === 'squiggly-error').map(it => it.id), [])
-      this.$set(this.info, 'running', true)
+      this.info.running = true
       let requestConfig = {
         baseURL: contants.SERVER_URL,
         url: utils.replaceURL('/' + this.info.groupPath + '/' + this.info.path),
@@ -562,7 +562,7 @@ export default {
         this.$magicAlert({
           content: '请填写路径变量后在测试！'
         })
-        this.$set(this.info, 'running', false)
+        this.info.running = false
         return;
       }
       this.info.headers
@@ -606,7 +606,7 @@ export default {
             this.$magicAlert({
               content: 'RequestBody 参数有误，请检查！'
             })
-            this.$set(this.info, 'running', false)
+this.info.running = false
             return
           }
         }

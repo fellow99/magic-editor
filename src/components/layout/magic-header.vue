@@ -37,7 +37,7 @@
         <li v-for="theme in Object.keys(Themes)" :key="'theme_' + theme" @click="switchTheme(theme)">{{ theme }}</li>
       </ul>
     </div>
-    <magic-dialog title="上传接口" :value="showUploadDialog" align="right" @onClose="showUploadDialog = false">
+    <magic-dialog title="上传接口" v-model="showUploadDialog" align="right" @onClose="showUploadDialog = false">
       <template #content>
         <magic-file ref="uploadFile" placeholder="未选择文件" />
       </template>
@@ -208,11 +208,11 @@ export default {
       }
     },
     switchTheme($theme) {
-      Object.keys(this.themeStyle).forEach((key) => this.$delete(this.themeStyle, key))
+      Object.keys(this.themeStyle).forEach((key) => delete this.themeStyle[key])
       let theme = Themes[$theme]
       let keys = Object.keys(theme)
       keys.forEach((key) => {
-        this.$set(this.themeStyle, `--${key}`, theme[key])
+        this.themeStyle[`--${key}`] = theme[key]
       })
       store.set('skin', $theme)
       monaco.editor.setTheme($theme)

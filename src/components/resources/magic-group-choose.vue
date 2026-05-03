@@ -5,7 +5,7 @@
             :style="{ 'padding-left': 17 * item.level + 'px' }"
             :title="`${item.name||''}${item.parentId !== 'root' ? '(' + (item.path || '') + ')' : ''}`"
             class="ma-tree-item-header ma-tree-hover"
-            @click.stop="$set(item,'opened',!item.opened)"
+            @click.stop="item.opened = !item.opened"
         >
           <magic-checkbox :value="item.id === selectedItem" :checked-half="item.checkedHalf" @change="doSelected(item)"/>
           <i :class="item.opened ? 'ma-icon-arrow-bottom' : 'ma-icon-arrow-right'" class="ma-icon" />
@@ -94,7 +94,7 @@ export default {
       this.listGroupData.forEach(element => {
         groupItem[element.id] = []
         element.folder = true
-        this.$set(element, 'opened', true)
+        element.opened = true
         // 缓存一个name和path给后面使用
         element.tmpName = element.name.indexOf('/') === 0 ? element.name : '/' + element.name
         element.tmpPath = element.path.indexOf('/') === 0 ? element.path : '/' + element.path
@@ -117,10 +117,10 @@ export default {
                 element.groupName = item.tmpName
                 element.groupPath = item.tmpPath
                 element.groupId = item.id
-                this.$set(item.children, item.children.length, element)
+                item.children.push(element)
               })
             }
-            this.$set(temp, temp.length, treeArr[index])
+            temp.push(treeArr[index])
           }
         })
         return temp

@@ -9,7 +9,7 @@
 
 **证据**：
 - `src/components/magic-editor.vue` 是唯一对外组件
-- `src/App.vue:18-28` 三层兜底注入：`parent.MAGIC_EDITOR_CONFIG` → `window.MAGIC_EDITOR_CONFIG` → `import.meta.env.DEV` 默认值
+- `src/App.vue:18-28` 三层兜底注入：`parent.MAGIC_EDITOR_CONFIG` → `window.MAGIC_EDITOR_CONFIG` → `import.meta.env.VITE_DEV_MODE` 默认值
 - `src/index.js:10` 仅注册一个组件 `MagicEditor`
 
 **衍生约束**：

@@ -5,7 +5,7 @@
             :style="{ 'padding-left': 17 * item.level + 'px' }"
             :title="`${item.name||''}${item.parentId !== 'root' ? '(' + (item.path || '') + ')' : ''}`"
             class="ma-tree-item-header ma-tree-hover"
-            @click.stop="$set(item,'opened',!item.opened)"
+            @click.stop="item.opened = !item.opened"
         >
           <magic-checkbox v-model="item.selected" :checked-half="item.checkedHalf" @change="e => doSelected(item,e)"/>
           <i :class="item.opened ? 'ma-icon-arrow-bottom' : 'ma-icon-arrow-right'" class="ma-icon" />
@@ -145,7 +145,7 @@ export default {
       this.listGroupData.forEach(element => {
         groupItem[element.id] = []
         element.folder = true
-        this.$set(element, 'opened', contants.DEFAULT_EXPAND)
+        element.opened = contants.DEFAULT_EXPAND
         // 缓存一个name和path给后面使用
         element.tmpName = element.name.indexOf('/') === 0 ? element.name : '/' + element.name
         element.tmpPath = element.path.indexOf('/') === 0 ? element.path : '/' + element.path
@@ -179,10 +179,10 @@ export default {
                 element.groupName = item.tmpName
                 element.groupPath = item.tmpPath
                 element.groupId = item.id
-                this.$set(item.children, item.children.length, element)
+                item.children.push(element)
               })
             }
-            this.$set(temp, temp.length, treeArr[index])
+            temp.push(treeArr[index])
           }
         })
         return temp
@@ -238,7 +238,7 @@ export default {
             element.tmpName = (parentItem.tmpName + '/' + element.name).replace(new RegExp('(/)+', 'gm'), '/')
             element.tmpPath = (parentItem.tmpPath + '/' + element.path).replace(new RegExp('(/)+', 'gm'), '/')
             if (folding === true) {
-              this.$set(element, 'opened', false)
+              element.opened = false
             }
             if (element.children && element.children.length > 0) {
               buildHandle(element.children, element, level + 1)
@@ -300,7 +300,7 @@ export default {
         const element = tree[index]
         // 排除分组类型
         if (element.folder === true && element.id === newItem.groupId) {
-          this.$set(element.children, element.children.length, newItem)
+          element.children.push(newItem)
           this.changeForceUpdate()
           return true
         } else if (element.children && element.children.length > 0) {

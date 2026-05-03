@@ -34,14 +34,14 @@
             class="ma-tree-item-header ma-tree-hover"
             :dragtarget="dragging && draggableTargetItem === item"
             @click="bus.$emit('api-group-selected', item)"
-            @dblclick="$set(item, 'opened', !item.opened)"
+            @dblclick="item.opened = !item.opened"
             @dragenter="e => draggable(item, e, 'dragenter')"
             @contextmenu.prevent="e => folderRightClickHandle(e, item)"
             @dragstart.stop="e => draggable(item, e, 'dragstart')"
             @dragend.stop="e => draggable(item, e, 'dragend')"
             @dragover.prevent
         >
-          <i :class="item.opened ? 'ma-icon-arrow-bottom' : 'ma-icon-arrow-right'" class="ma-icon" @click="$set(item, 'opened', !item.opened)"/>
+          <i :class="item.opened ? 'ma-icon-arrow-bottom' : 'ma-icon-arrow-right'" class="ma-icon" @click="item.opened = !item.opened"/>
           <i class="ma-icon ma-icon-list"></i>
           <label>{{ item.name }}</label>
           <span>({{ item.path }})</span>
@@ -233,7 +233,7 @@ export default {
       this.listGroupData.forEach(element => {
         groupItem[element.id] = []
         element.folder = true
-        this.$set(element, 'opened', contants.DEFAULT_EXPAND)
+        element.opened = contants.DEFAULT_EXPAND
         // 缓存一个name和path给后面使用
         element.tmpName = element.name.indexOf('/') === 0 ? element.name : '/' + element.name
         element.tmpPath = element.path.indexOf('/') === 0 ? element.path : '/' + element.path
@@ -268,10 +268,10 @@ export default {
                 element.groupName = item.tmpName
                 element.groupPath = item.tmpPath
                 element.groupId = item.id
-                this.$set(item.children, item.children.length, element)
+                item.children.push(element)
               })
             }
-            this.$set(temp, temp.length, treeArr[index])
+            temp.push(treeArr[index])
           }
         })
         return temp
@@ -288,7 +288,7 @@ export default {
           if (element.folder === true) {
             element.tmpName = (parentItem.tmpName + '/' + element.name).replace(new RegExp('(/)+', 'gm'), '/')
             element.tmpPath = (parentItem.tmpPath + '/' + element.path).replace(new RegExp('(/)+', 'gm'), '/')
-            this.$set(element, 'opened', folding !== true)
+            element.opened = folding !== true
             if (element.children && element.children.length > 0) {
               buildHandle(element.children, element, level + 1)
             }
@@ -346,7 +346,7 @@ export default {
     },
     // 文件夹右键菜单
     folderRightClickHandle(event, item) {
-      this.$set(item, 'selectRightItem', true)
+      item.selectRightItem = true
       this.$magicContextmenu({
         menus: [
           {
@@ -452,14 +452,14 @@ export default {
         event,
         zIndex: 9999,
         destroy: () => {
-          this.$set(item, 'selectRightItem', false)
+          item.selectRightItem = false
         }
       })
       return false
     },
     // 文件右键菜单
     fileRightClickHandle(event, item) {
-      this.$set(item, 'selectRightItem', true)
+      item.selectRightItem = true
       this.$magicContextmenu({
         menus: [
           {
@@ -548,7 +548,7 @@ export default {
         event,
         zIndex: 9999,
         destroy: () => {
-          this.$set(item, 'selectRightItem', false)
+          item.selectRightItem = false
         }
       })
       return false
@@ -738,7 +738,7 @@ export default {
         const element = tree[index]
         // 排除分组类型
         if (element.folder === true && element.id === newItem.groupId) {
-          this.$set(element.children, element.children.length, newItem)
+          element.children.push(newItem)
           this.changeForceUpdate()
           return true
         } else if (element.children && element.children.length > 0) {
@@ -757,8 +757,8 @@ export default {
         item.tmpName = ('/' + item.name).replace(new RegExp('(/)+', 'gm'), '/')
         item.tmpPath = ('/' + item.path).replace(new RegExp('(/)+', 'gm'), '/')
         item.folder = true
-        this.$set(item, 'opened', contants.DEFAULT_EXPAND)
-        this.$set(item, 'selectRightItem', false)
+        item.opened = contants.DEFAULT_EXPAND
+        item.selectRightItem = false
         tree.push(item)
         return true
       }
@@ -780,8 +780,8 @@ export default {
             item.tmpName = (element.tmpName + '/' + item.name).replace(new RegExp('(/)+', 'gm'), '/')
             item.tmpPath = (element.tmpPath + '/' + item.path).replace(new RegExp('(/)+', 'gm'), '/')
             item.folder = true
-            this.$set(item, 'opened', contants.DEFAULT_EXPAND)
-            this.$set(item, 'selectRightItem', false)
+            item.opened = contants.DEFAULT_EXPAND
+            item.selectRightItem = false
             element.children.push(item)
             find = true
             this.changeForceUpdate()

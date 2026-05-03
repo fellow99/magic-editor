@@ -102,7 +102,7 @@ export default {
         }
         this.tabs = this.tabs.concat(this.commonTabs)
       }
-      this.$set(this, 'selectedTab', target)
+      this.selectedTab = target
       bus.$emit('update-window-size')
     })
   },

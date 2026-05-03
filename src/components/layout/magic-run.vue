@@ -174,7 +174,7 @@ export default {
       return deepClone(newBody);
     }
   },
-  destroyed() {
+  unmounted() {
     if (this.resultEditor) {
       this.resultEditor.dispose()
     }
