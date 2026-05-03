@@ -203,6 +203,13 @@ export default defineConfig(({ mode }) => {
     server: {
       open: false,
       host: true,
+      watch: {
+        usePolling: true,
+        interval: 1000,
+      },
+      hmr: {
+        overlay: true,
+      },
       proxy: {
         '/magic': {
           target: 'http://localhost:9999',
