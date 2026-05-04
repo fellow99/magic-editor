@@ -33,10 +33,11 @@ import MagicInput from '@/components/common/magic-input.vue'
 import store from '@/scripts/store.js'
 import { searchScript, getFile } from '@/api/web.js'
 import bus from '@/scripts/bus.js'
-import { TokenizationRegistry } from 'monaco-editor/esm/vs/editor/common/modes.js'
-import { tokenizeToString } from 'monaco-editor/esm/vs/editor/common/modes/textToHtmlTokenizer.js'
+// TokenizationRegistry / tokenizeToString were removed from public ESM in monaco 0.34+.
+// We fall back to plain-text; keyword highlighting is applied by replaceKeywords below.
 import contants from "@/scripts/contants";
 import {replaceKeywords} from "@/scripts/utils";
+import { markRaw } from 'vue'
 export default {
   name: 'MagicSearch',
   components: {
@@ -68,7 +69,7 @@ export default {
     },
     initEditor() {
       if (this.searchList.length > 0 && !this.searchEditor) {
-        this.searchEditor = monaco.editor.create(document.getElementById('searchEditor'), {
+        this.searchEditor = markRaw(monaco.editor.create(document.getElementById('searchEditor'), {
           minimap: {
             enabled: false
           },
@@ -83,7 +84,7 @@ export default {
           fontFamily: contants.EDITOR_FONT_FAMILY,
           fontSize: contants.EDITOR_FONT_SIZE,
           theme: store.get('skin') || 'default'
-        })
+        }))
       }
     },
     setValue(value) {
@@ -104,10 +105,8 @@ export default {
       }
     },
     async getHighlight(value){
-      const support = await TokenizationRegistry.getPromise('magicscript');
-      if (support) {
-        return tokenizeToString(value, support);
-      }
+      // TokenizationRegistry / tokenizeToString removed from ESM in monaco 0.34+.
+      // Return plain text; replaceKeywords will apply keyword spans.
       return value;
     },
     getResult(text) {

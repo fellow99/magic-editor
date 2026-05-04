@@ -16,6 +16,7 @@
 
 <script>
 import * as monaco from 'monaco-editor'
+import { markRaw } from 'vue'
 import bus from '@/scripts/bus.js'
 import {formatDate, isVisible} from '@/scripts/utils.js'
 import { getBackupContent } from '@/api/web.js'
@@ -36,7 +37,7 @@ export default {
     }
   },
   mounted() {
-    this.diffEditor = monaco.editor.createDiffEditor(this.$refs.diffEditor, {
+    this.diffEditor = markRaw(monaco.editor.createDiffEditor(this.$refs.diffEditor, {
       enableSplitViewResizing: false,
       minimap: {
         enabled: false,
@@ -48,7 +49,7 @@ export default {
       fontFamily: contants.EDITOR_FONT_FAMILY,
       fontSize: contants.EDITOR_FONT_SIZE,
       fontLigatures: true
-    })
+    }))
     bus.$on('update-window-size', this.layout)
   },
   methods: {
@@ -57,7 +58,7 @@ export default {
       getBackupContent(item.timestamp, item.id)
           .success((info) => {
             info = JSON.parse(info.content)
-            this.originalModel = monaco.editor.createModel(info.script, 'magicscript');
+            this.originalModel = markRaw(monaco.editor.createModel(info.script, 'magicscript'));
             this.diffEditor.setModel({
               original: this.originalModel,
               modified: this.scriptModel,
@@ -69,7 +70,7 @@ export default {
       this.isApi = isApi;
       this.currentItem = {}
       this.scriptEditor = scriptEditor
-      this.scriptModel = monaco.editor.createModel(this.scriptEditor.getValue(), 'magicscript')
+      this.scriptModel = markRaw(monaco.editor.createModel(this.scriptEditor.getValue(), 'magicscript'))
       this.originalModel = this.scriptModel;
       this.timestampes = timestampes.map((t) => {
         return {id: item.id, timestamp: t.createDate, dateTime: formatDate(t.createDate * 1), createBy: t.createBy}

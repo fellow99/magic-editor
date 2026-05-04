@@ -82,7 +82,18 @@ function monacoEditorLocalesPlugin(options = {}) {
     name: 'monaco-editor-locales',
     transform(code, id) {
       if (id.replace(/\\/g, '/').includes('esm/vs/nls.js')) {
+        // Handle both old (export function localize) and new (function localize ... export { localize }) formats
         code = code.replace(/export function localize/, 'function _ocalize')
+        code = code.replace(/^function localize\b/m, 'function _ocalize')
+        // Remove localize from any "export { ... localize ... }" statement
+        code = code.replace(/export\s*\{([^}]*)\}/g, (match, inner) => {
+          const filtered = inner
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s && s !== 'localize' && !s.startsWith('localize '))
+            .join(', ')
+          return filtered ? `export { ${filtered} }` : ''
+        })
 
         const endl = '\n'
         code += endl + 'function localize(data, message) {'
@@ -146,6 +157,9 @@ export default defineConfig(({ mode }) => {
           javascriptEnabled: true
         }
       }
+    },
+    optimizeDeps: {
+      include: ['monaco-editor']
     }
   }
 

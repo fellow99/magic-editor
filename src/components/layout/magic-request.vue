@@ -184,6 +184,7 @@
   import MagicJson from '@/components/common/magic-json.vue'
 
   import * as monaco from 'monaco-editor/esm/vs/editor/editor.api'
+  import { markRaw } from 'vue'
   import {formatJson, isVisible} from '@/scripts/utils.js'
   import bus from '@/scripts/bus.js'
   import store from '@/scripts/store.js'
@@ -341,7 +342,7 @@
       },
       initRequestBodyDom() {
         if (this.bodyEditor == null && this.showIndex === 3) {
-          this.bodyEditor = monaco.editor.create(this.$refs.bodyEditor, {
+          this.bodyEditor = markRaw(monaco.editor.create(this.$refs.bodyEditor, {
             minimap: {
               enabled: false
             },
@@ -356,7 +357,7 @@
             renderWhitespace: 'none',
             theme: store.get('skin') || 'default',
             value: formatJson(this.info.requestBody) || '{\r\n\t\r\n}'
-          })
+          }))
           this.layout()
           this.bodyEditor.onDidChangeModelContent(() => {
             this.updateRequestBody(this.bodyEditor.getValue())

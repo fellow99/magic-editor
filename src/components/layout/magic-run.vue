@@ -29,6 +29,7 @@
 import MagicJson from '@/components/common/magic-json.vue'
 import bus from '@/scripts/bus.js'
 import * as monaco from 'monaco-editor'
+import { markRaw } from 'vue'
 import store from '@/scripts/store.js'
 import {isVisible, deepClone, download as downloadFile} from '@/scripts/utils.js'
 import {parseJson} from '@/scripts/parsing/parser.js'
@@ -100,7 +101,7 @@ export default {
   },
   methods: {
     createEditor() {
-      this.resultEditor = monaco.editor.create(this.$refs.resultEditor, {
+      this.resultEditor = markRaw(monaco.editor.create(this.$refs.resultEditor, {
         minimap: {
           enabled: false,
         },
@@ -116,7 +117,7 @@ export default {
         value: this.info.responseBody || '',
         renderWhitespace: 'none',
         theme: store.get('skin') || 'default'
-      })
+      }))
       bus.$on('update-window-size', () => this.updateSize())
     },
     layout() {

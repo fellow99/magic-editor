@@ -79,9 +79,9 @@ import tokenizer from '@/scripts/parsing/tokenizer.js'
 import {TokenStream} from '@/scripts/parsing/index.js'
 import RequestParameter from '@/scripts/editor/request-parameter.js';
 import { CommandsRegistry } from 'monaco-editor/esm/vs/platform/commands/common/commands'
-import { KeybindingsRegistry } from 'monaco-editor/esm/vs/platform/keybinding/common/keybindingsRegistry.js'
 import { ContextKeyExpr } from 'monaco-editor/esm/vs/platform/contextkey/common/contextkey.js'
 import MagicTextIcon from "@/components/common/magic-text-icon.vue";
+import { markRaw } from 'vue'
 
 export default {
   name: 'MagicScriptEditor',
@@ -95,17 +95,22 @@ export default {
       scripts: [],
       selected: null,
       info: null,
-      editor: null,
       showHsitoryDialog: false,
       // tab拖拽的item
       draggableItem: {},
       draggableTargetItem: {},
     }
   },
+  created() {
+    // Store editor outside Vue reactivity to prevent layout() freeze.
+    // Vue3 wraps data() properties in Proxy; monaco's internal traversal
+    // would loop infinitely if the editor instance is made reactive.
+    this._editor = null
+  },
   mounted() {
     this.addScrollEventListener()
     initializeMagicScript()
-    this.editor = monaco.editor.create(this.$refs.editor, {
+    this._editor = markRaw(monaco.editor.create(this.$refs.editor, {
       minimap: {
         enabled: false
       },
@@ -120,23 +125,23 @@ export default {
       renderWhitespace: 'none',
       // 自动调整大小
       automaticLayout: true
-    })
-    this.editor.addAction({
+    }))
+    this._editor.addAction({
       id: 'editor.action.triggerSuggest.extension',
       label: '触发代码提示',
       precondition: '!suggestWidgetVisible && !markersNavigationVisible && !parameterHintsVisible && !findWidgetVisible',
       run: () => {
-        this.editor.trigger(null, 'editor.action.triggerSuggest', {})
+        this._editor.trigger(null, 'editor.action.triggerSuggest', {})
       }
     })
     CommandsRegistry.registerCommand('editor.action.scrollUp1Line', () => {
-      this.editor.setScrollTop(this.editor.getScrollTop() - 22)
+      this._editor.setScrollTop(this._editor.getScrollTop() - 22)
     })
-    this.editor.addCommand(
-        monaco.KeyMod.Alt | monaco.KeyCode.US_SLASH,
+    this._editor.addCommand(
+        monaco.KeyMod.Alt | monaco.KeyCode.Slash,
         () => {
-          let triggerParameterHints = this.editor.getAction('editor.action.triggerParameterHints')
-          let triggerSuggest = this.editor.getAction('editor.action.triggerSuggest.extension')
+          let triggerParameterHints = this._editor.getAction('editor.action.triggerParameterHints')
+          let triggerSuggest = this._editor.getAction('editor.action.triggerSuggest.extension')
           triggerParameterHints.run().then(() => {
             setTimeout(() => {
               if (triggerSuggest.isSupported()) {
@@ -147,45 +152,49 @@ export default {
         },
         '!findWidgetVisible && !inreferenceSearchEditor && !editorHasSelection'
     )
+    // Override default keybindings using public addKeybindingRule API (replaces
+    // private _coreKeybindings / _standaloneKeybindingService.addDynamicKeybinding).
     const updateKeys = [
-        ['editor.action.triggerParameterHints', monaco.KeyMod.Alt | monaco.KeyCode.US_SLASH],
-        ['editor.action.triggerSuggest', monaco.KeyMod.Alt | monaco.KeyCode.US_SLASH],
-        ['toggleSuggestionDetails', monaco.KeyMod.Alt | monaco.KeyCode.US_SLASH, ContextKeyExpr.deserialize('suggestWidgetVisible && textInputFocus')],
-        ['editor.action.formatDocument', monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KEY_L],
+        ['editor.action.triggerParameterHints', monaco.KeyMod.Alt | monaco.KeyCode.Slash],
+        ['editor.action.triggerSuggest', monaco.KeyMod.Alt | monaco.KeyCode.Slash],
+        ['toggleSuggestionDetails', monaco.KeyMod.Alt | monaco.KeyCode.Slash, ContextKeyExpr.deserialize('suggestWidgetVisible && textInputFocus')],
+        ['editor.action.formatDocument', monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL],
         ['editor.action.marker.nextInFiles', monaco.KeyMod.CtrlCmd | monaco.KeyCode.F8]
     ]
     updateKeys.forEach(item => {
-      let action = item[0]
-      const { handler, when } = CommandsRegistry.getCommand(action) ?? {}
-      if (handler) {
-        let index = KeybindingsRegistry._coreKeybindings.findIndex(it => it.command === action);
-        if(index > 0){
-          KeybindingsRegistry._coreKeybindings.splice(index, 1)
-        }
-        this.editor._standaloneKeybindingService.addDynamicKeybinding(action, item[1], handler, when || item[2])
-      }
+      // Remove the default keybinding by setting keybinding to -1 (chord 0).
+      monaco.editor.addKeybindingRule({
+        keybinding: 0,
+        command: '-' + item[0]
+      })
+      // Add our custom keybinding via editor.addCommand for keybindings with when clause,
+      // or via addKeybindingRule for simple remaps.
+      const when = item[2] ? (typeof item[2] === 'string' ? item[2] : item[2].serialize()) : undefined
+      monaco.editor.addKeybindingRule({
+        keybinding: item[1],
+        command: item[0],
+        when
+      })
     })
-    KeybindingsRegistry._cachedMergedKeybindings = null;
-    this.editor.onMouseDown(e => {
+    this._editor.onMouseDown(e => {
       if (e.target.element.classList.contains('codicon')) {
         return
       }
       if (e.target.detail && e.target.detail.offsetX && e.target.detail.offsetX >= 0 && e.target.detail.offsetX <= 90) {
         var line = e.target.position.lineNumber
         if (
-            this.editor
+            this._editor
                 .getModel()
                 .getLineContent(line)
                 .trim() === ''
         ) {
           return
         }
-        let decorations = this.editor.getLineDecorations(line)
-        let decoration = decorations.filter(it => it.options.linesDecorationsClassName === 'breakpoints')
+        let decorations = this._editor.getLineDecorations(line)
         if (decoration && decoration.length > 0) {
-          this.editor.getModel().deltaDecorations([decoration[0].id], [])
+          this._editor.getModel().deltaDecorations([decoration[0].id], [])
         } else {
-          this.editor.getModel().deltaDecorations(
+          this._editor.getModel().deltaDecorations(
               [],
               [
                 {
@@ -199,12 +208,12 @@ export default {
               ]
           )
         }
-        this.info.ext.decorations = this.editor.getModel().getAllDecorations()
+        this.info.ext.decorations = this._editor.getModel().getAllDecorations()
       }
     })
-    this.editor.onDidChangeModelContent(() => {
+    this._editor.onDidChangeModelContent(() => {
       if (this.info) {
-        this.info.script = this.editor.getValue()
+        this.info.script = this._editor.getValue()
         if (this.timeout) {
           clearTimeout(this.timeout)
         }
@@ -257,7 +266,7 @@ export default {
       if (this.info?.ext?.sessionId === args[0]) {
         let line = args[2]
         let range = new monaco.Range(line[0], line[2], line[1], line[3] + 1)
-        let decorations = this.editor.deltaDecorations(
+        let decorations = this._editor.deltaDecorations(
             [],
             [{
               range,
@@ -268,10 +277,10 @@ export default {
                 inlineClassName: 'squiggly-error'
               }
             }])
-        this.editor.revealRangeInCenter(range)
-        this.editor.focus()
+        this._editor.revealRangeInCenter(range)
+        this._editor.focus()
         if (contants.DECORATION_TIMEOUT >= 0) {
-          setTimeout(() => this.editor.deltaDecorations(decorations, []), contants.DECORATION_TIMEOUT)
+          setTimeout(() => this._editor.deltaDecorations(decorations, []), contants.DECORATION_TIMEOUT)
         }
       }
     },
@@ -291,18 +300,18 @@ export default {
         }
       }
       this.info.ext.debugDecoration = decoration
-      this.info.ext.debugDecorations = [this.editor.deltaDecorations([], [decoration])]
+      this.info.ext.debugDecorations = [this._editor.deltaDecorations([], [decoration])]
       bus.$emit('switch-tab', 'debug')
     },
     doValidate() {
       try {
-        let parser = new Parser(new TokenStream(tokenizer(this.editor.getValue())))
+        let parser = new Parser(new TokenStream(tokenizer(this._editor.getValue())))
         parser.parse()
-        monaco.editor.setModelMarkers(this.editor.getModel(), 'validate', [{}])
+        monaco.editor.setModelMarkers(this._editor.getModel(), 'validate', [{}])
       } catch (e) {
         if (e.span) {
           let line = e.span.getLine()
-          monaco.editor.setModelMarkers(this.editor.getModel(), 'validate', [
+          monaco.editor.setModelMarkers(this._editor.getModel(), 'validate', [
             {
               startLineNumber: line.lineNumber,
               endLineNumber: line.endLineNumber,
@@ -316,12 +325,11 @@ export default {
       }
     },
     layout() {
-      // BUG: 后续代码会导致页面卡死，暂时注释掉
-      // this.$nextTick(() => {
-      //   if (utils.isVisible(this.$refs.editor)) {
-      //     this.$nextTick(() => this.editor.layout())
-      //   }
-      // })
+      this.$nextTick(() => {
+        if (utils.isVisible(this.$refs.editor)) {
+          this.$nextTick(() => this._editor.layout())
+        }
+      })
     },
     open(item) {
       if (item.delete) {
@@ -334,7 +342,7 @@ export default {
       let isApi = item._type === 'api';
       let info = this.scripts.filter(it => it.id === id)[0]
       if (this.info) {
-        this.info.ext.scrollTop = this.editor.getScrollTop();
+        this.info.ext.scrollTop = this._editor.getScrollTop();
       }
       if (!item.ext) {
         item.ext = {
@@ -372,11 +380,11 @@ export default {
           this.selected = item
         }
         this.info = item
-        this.editor.setValue(item.script || '')
-        this.editor.getModel().deltaDecorations([], item.ext.decorations)
-        this.editor.setScrollTop(item.ext.scrollTop);
+        this._editor.setValue(item.script || '')
+        this._editor.getModel().deltaDecorations([], item.ext.decorations)
+        this._editor.setScrollTop(item.ext.scrollTop);
         if (item.ext.debugDecoration) {
-          item.ext.debugDecorations = this.editor.getModel().deltaDecorations([], [item.ext.debugDecoration])
+          item.ext.debugDecorations = this._editor.getModel().deltaDecorations([], [item.ext.debugDecoration])
         }
         bus.$emit('opened', item)
       } else {
@@ -435,8 +443,8 @@ export default {
           })
           this.scripts.push(item)
           this.info = item
-          this.editor.setValue(item.script)
-          this.editor.setScrollTop(item.ext.scrollTop);
+          this._editor.setValue(item.script)
+          this._editor.setScrollTop(item.ext.scrollTop);
           bus.$emit('opened', item)
           this.resetRecentOpenedTab()
         }).end(() => {
@@ -543,7 +551,7 @@ export default {
       }
     },
     internalTest() {
-      this.editor.deltaDecorations(this.editor.getModel().getAllDecorations().filter(it => it.options.inlineClassName === 'squiggly-error').map(it => it.id), [])
+      this._editor.deltaDecorations(this._editor.getModel().getAllDecorations().filter(it => it.options.inlineClassName === 'squiggly-error').map(it => it.id), [])
       this.info.running = true
       let requestConfig = {
         baseURL: contants.SERVER_URL,
@@ -634,7 +642,7 @@ this.info.running = false
       let isApi = this.info._type === 'api';
       listBackupsById(this.info.id).success(timestampes => {
         if (timestampes && timestampes.length > 0) {
-          this.$refs.history.load(timestampes, this.info, this.editor, isApi)
+          this.$refs.history.load(timestampes, this.info, this._editor, isApi)
           this.showHsitoryDialog = true
         } else {
           this.$magicAlert({
@@ -650,10 +658,10 @@ this.info.running = false
       }
       let target = this.info
       if (target.ext.debuging) {
-        target.ext.debugDecorations && this.editor.deltaDecorations(target.ext.debugDecorations, [])
+        target.ext.debugDecorations && this._editor.deltaDecorations(target.ext.debugDecorations, [])
         target.ext.debuging = false
         target.ext.variables = []
-        bus.$emit('message', 'resume_breakpoint', (step === true ? '1' : '0')+ ',' + this.editor
+        bus.$emit('message', 'resume_breakpoint', (step === true ? '1' : '0')+ ',' + this._editor
           .getModel()
           .getAllDecorations()
           .filter(it => it.options.linesDecorationsClassName === 'breakpoints')
@@ -689,7 +697,7 @@ this.info.running = false
       requestConfig.headers[contants.HEADER_REQUEST_SESSION] = sessionId
       requestConfig.headers[contants.HEADER_MAGIC_TOKEN] = contants.HEADER_MAGIC_TOKEN_VALUE
       this.mergeGlobalSettings(requestConfig)
-      requestConfig.headers[contants.HEADER_REQUEST_BREAKPOINTS] = this.editor
+      requestConfig.headers[contants.HEADER_REQUEST_BREAKPOINTS] = this._editor
           .getModel()
           .getAllDecorations()
           .filter(it => it.options.linesDecorationsClassName === 'breakpoints')
@@ -732,7 +740,7 @@ this.info.running = false
               dataLen = dataLen.toFixed(2);
               bus.$emit('status', `「${fullName}」测试完毕，状态：<em>${res.status}</em> 大小：<em>${dataLen} ${unit[index]}</em> 耗时：<em>${new Date().getTime() - start} ms</em>`)
               const contentType = res.headers['content-type']
-              target.ext.debugDecorations && this.editor.deltaDecorations(target.ext.debugDecorations, [])
+              target.ext.debugDecorations && this._editor.deltaDecorations(target.ext.debugDecorations, [])
               target.ext.debugDecorations = target.ext.debugDecoration = null
               if (!(data instanceof Blob)) {
                 target.ext.debuging = target.running = false

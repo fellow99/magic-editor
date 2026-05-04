@@ -81,6 +81,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import bus from '@/scripts/bus.js'
 import { loadResourceTree, getFolderTree, getFile, testDatasource, saveFile, deleteResource } from '@/api/web.js'
 import contants from "@/scripts/contants.js"
@@ -297,7 +298,7 @@ export default {
         delete temp.password
         delete temp.url
         if(!this.editor){
-          this.editor = monaco.editor.create(this.$refs.editor, {
+          this.editor = markRaw(monaco.editor.create(this.$refs.editor, {
             minimap: {
               enabled: false
             },
@@ -311,7 +312,7 @@ export default {
             renderWhitespace: 'none',
             theme: store.get('skin') || 'default',
             value: formatJson(temp) || '{\r\n\t\r\n}'
-          })
+          }))
         }else{
           bus.$emit('status', `编辑数据源「${this.datasourceObj.name}」`)
           this.editor.setValue(formatJson(temp))
