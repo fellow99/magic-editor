@@ -398,6 +398,11 @@ export default {
         }
         item.ext.loading = true;
         getFile(id).success(data => {
+          // 后端偶尔返回 null（如文件尚未保存），跳过填充
+          if (!data) {
+            item.ext.loading = false
+            return
+          }
           if (isApi) {
             if (!Array.isArray(item.parameters)) {
               // v0.5.0以下版本处理
@@ -438,7 +443,7 @@ export default {
           item.ext.loading = false;
         })
       }
-      // this.layout()
+      this.layout()
     },
     resetRecentOpenedTab(){
       store.set(contants.RECENT_OPENED_TAB, this.scripts.filter(it => it.id).map(it => it.id))

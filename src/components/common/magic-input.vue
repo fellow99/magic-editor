@@ -1,7 +1,7 @@
 <template>
   <div @click="onClick" :style="{width}">
-    <input :readonly="readonly" :placeholder="placeholder" :type="type" :value="value" @focus="focus"
-           @input="(e) => {$emit('update:value', e.target.value),$emit('input', e.target.value)}"
+    <input :readonly="readonly" :placeholder="placeholder" :type="type" :value="modelValue !== undefined ? modelValue : value" @focus="focus"
+           @input="(e) => {$emit('update:modelValue', e.target.value),$emit('update:value', e.target.value),$emit('input', e.target.value)}"
            @keyup.enter.stop="onEnter"/>
     <span v-if="icon"><i :class="'ma-icon ma-icon-' + icon"/></span>
   </div>
@@ -20,6 +20,8 @@ export default {
       default: '',
     },
     value: String,
+    // Vue3 v-model 使用 modelValue，兼容旧的 value prop
+    modelValue: String,
     readonly: {
       type: Boolean,
       default: false

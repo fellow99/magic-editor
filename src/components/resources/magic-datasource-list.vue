@@ -32,7 +32,7 @@
       </div>
       <div class="no-data" v-show="!showLoading && (!datasources || datasources.length === 0)">无数据</div>
     </div>
-    <magic-dialog width="450px" height="450px" v-model="showDialog" :title="datasourceObj.id ? '修改数据源:' + datasourceObj.name : '创建数据源'" align="right" @onClose="toogleDialog(false)">
+    <magic-dialog width="450px" height="450px" v-model="showDialog" :title="datasourceObj?.id ? '修改数据源:' + datasourceObj.name : '创建数据源'" align="right" @onClose="toogleDialog(false)">
       <template #content>
         <div class="ds-form">
           <label>名称</label>
@@ -140,7 +140,7 @@ export default {
     layout() {
       this.$nextTick(() => {
         if (this.editor && isVisible(this.$refs.editor)) {
-          this.editor.layout()
+          // this.editor.layout()
         }
       })
     },
@@ -196,9 +196,11 @@ export default {
       }else{
         bus.$emit('status', `加载数据源「${item.name}」详情`)
         getFile(item.id).success(res => {
-          this.datasourceObj = res;
-          this.toogleDialog(true)
-          bus.$emit('status', `数据源「${item.name}」详情加载完毕`)
+          if (res) {
+            this.datasourceObj = res;
+            this.toogleDialog(true)
+            bus.$emit('status', `数据源「${item.name}」详情加载完毕`)
+          }
         });
       }
     },

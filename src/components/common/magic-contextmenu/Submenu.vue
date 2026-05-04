@@ -3,7 +3,7 @@
       v-if="visible"
       ref="menu"
       :class="[commonClass.menu, 'magic-contextmenu', customClass]"
-      :style="{left: style.left + 'px', top: style.top + 'px', minWidth: style.minWidth + 'px', zIndex: style.zIndex}"
+      :style="{left: localStyle.left + 'px', top: localStyle.top + 'px', minWidth: localStyle.minWidth + 'px', zIndex: localStyle.zIndex}"
       @contextmenu="(e)=>e.preventDefault()"
   >
     <div class="magic-contextmenu-body">
@@ -73,6 +73,7 @@ import {
   SUBMENU_X_OFFSET,
   SUBMENU_Y_OFFSET
 } from "./constant.js"
+import SubmenuComponent from './Submenu.vue'
 
 export default {
   name: COMPONENT_NAME,
@@ -93,7 +94,14 @@ export default {
       },
       visible: false,
       hasIcon: false,
-      localOpenTrend: this.openTrend
+      localOpenTrend: this.openTrend,
+      // Vue3 不允许直接修改 prop，复制一份到本地用于动态调整 left/top 等位置
+      localStyle: {
+        left: this.style.left || 0,
+        top: this.style.top || 0,
+        minWidth: this.style.minWidth || 150,
+        zIndex: this.style.zIndex || 2
+      }
     }
   },
   mounted() {
@@ -107,46 +115,56 @@ export default {
     this.$nextTick(() => {
       const windowWidth = document.documentElement.clientWidth
       const windowHeight = document.documentElement.clientHeight
-      const menu = this.$refs.menu
+      const menuRef = this.$refs.menu
+      if (!menuRef) {
+        return
+      }
+      // Vue3 中 ref 挂在组件上时返回组件实例，挂在原生元素上时返回 DOM 元素
+      // 用 $el 做兼容，确保拿到真实 DOM 节点
+      const menu = menuRef.$el || menuRef
+      if (!menu || typeof menu.offsetWidth === 'undefined') {
+        return
+      }
       const menuWidth = menu.offsetWidth
       const menuHeight = menu.offsetHeight
 
-      (this.localOpenTrend === SUBMENU_OPEN_TREND_LEFT
+      // 注意：下一行以 ( 开头，必须用分号隔开，否则 JS 会将 offsetHeight 当函数调用
+      ;(this.localOpenTrend === SUBMENU_OPEN_TREND_LEFT
           ? this.leftOpen
           : this.rightOpen)(windowWidth, windowHeight, menuWidth)
 
-      this.style.top = this.position.y
+      this.localStyle.top = this.position.y
       if (this.position.y + menuHeight > windowHeight) {
         if (this.position.height === 0) {
-          this.style.top = this.position.y - menuHeight
+          this.localStyle.top = this.position.y - menuHeight
         } else {
-          this.style.top = windowHeight - menuHeight
+          this.localStyle.top = windowHeight - menuHeight
         }
       }
     })
   },
   methods: {
     leftOpen(windowWidth, windowHeight, menuWidth) {
-      this.style.left = this.position.x - menuWidth
+      this.localStyle.left = this.position.x - menuWidth
       this.localOpenTrend = SUBMENU_OPEN_TREND_LEFT
-      if (this.style.left < 0) {
+      if (this.localStyle.left < 0) {
         this.localOpenTrend = SUBMENU_OPEN_TREND_RIGHT
         if (this.position.width === 0) {
-          this.style.left = 0
+          this.localStyle.left = 0
         } else {
-          this.style.left = this.position.x + this.position.width
+          this.localStyle.left = this.position.x + this.position.width
         }
       }
     },
     rightOpen(windowWidth, windowHeight, menuWidth) {
-      this.style.left = this.position.x + this.position.width
+      this.localStyle.left = this.position.x + this.position.width
       this.localOpenTrend = SUBMENU_OPEN_TREND_RIGHT
-      if (this.style.left + menuWidth > windowWidth) {
+      if (this.localStyle.left + menuWidth > windowWidth) {
         this.localOpenTrend = SUBMENU_OPEN_TREND_LEFT
         if (this.position.width === 0) {
-          this.style.left = windowWidth - menuWidth
+          this.localStyle.left = windowWidth - menuWidth
         } else {
-          this.style.left = this.position.x - menuWidth
+          this.localStyle.left = this.position.x - menuWidth
         }
       }
     },
@@ -168,7 +186,7 @@ export default {
       const container = document.createElement('div')
       document.body.appendChild(container)
 
-      const submenuStyle = { ...this.style }
+      const submenuStyle = { ...this.localStyle }
       const submenuPosition = {
         x: menuItemClientRect.x + SUBMENU_X_OFFSET,
         y: menuItemClientRect.y + SUBMENU_Y_OFFSET,
@@ -177,20 +195,17 @@ export default {
       }
 
       this.activeSubmenu.index = index
-      const app = createApp({
-        extends: this.$options,
-        propsData: {
-          menus: item.children,
-          openTrend: this.localOpenTrend,
-          commonClass: this.commonClass,
-          position: submenuPosition,
-          style: submenuStyle,
-          minWidth: typeof item.minWidth === "number" ? item.minWidth : this.style.minWidth,
-          zIndex: this.style.zIndex,
-          customClass: typeof item.customClass === "string" ? item.customClass : this.customClass
-        }
+      const app = createApp(SubmenuComponent, {
+        menus: item.children,
+        openTrend: this.localOpenTrend,
+        commonClass: this.commonClass,
+        position: submenuPosition,
+        style: submenuStyle,
+        minWidth: typeof item.minWidth === "number" ? item.minWidth : this.localStyle.minWidth,
+        zIndex: this.localStyle.zIndex,
+        customClass: typeof item.customClass === "string" ? item.customClass : this.customClass
       })
-      app.component('Submenu', this.$options)
+      app.component('Submenu', SubmenuComponent)
 
       this.activeSubmenu.app = app
       this.activeSubmenu.instance = app.mount(container)

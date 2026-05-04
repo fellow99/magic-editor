@@ -107,6 +107,7 @@
 </template>
 
 <script>
+import { shallowRef } from 'vue'
 import bus from '../../scripts/bus.js'
 import MagicTree from '../common/magic-tree.vue'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
@@ -131,15 +132,16 @@ export default {
     MagicInput,
     MagicGroupChoose
   },
+  setup() {
+    const tree = shallowRef([])
+    return { tree }
+  },
   data() {
     return {
       bus: bus,
-      // 分组list数据
-      listGroupData: [],
-      // 接口list数据
-      listChildrenData: [],
-      // 分组+接口tree数据
-      tree: [],
+      // 注意：listGroupData / listChildrenData 只是中间计算数据，不放响应式（避免 arrayToTree 递归赋值 children 时触发无限响应式循环）
+      // 它们通过 created() 直接挂在实例上（this._listGroupData / this._listChildrenData）
+      // 分组+接口tree数据（tree 用 shallowRef，避免 Vue3 深度代理节点对象中的 properties 等大字段导致 OOM）
       // 数据排序规则,true:升序,false:降序
       treeSort: true,
       apiCopyGroupChooseVisible: false,
@@ -153,7 +155,7 @@ export default {
         name: '',
         path: '',
         parentId: '',
-        type: '1',
+        type: 'api',
         children: []
       },
       // 换成一个临时对象，修改使用
@@ -199,18 +201,18 @@ export default {
       return new Promise((resolve) => {
         loadResourceTree().success(() => {
           const tree = getFolderTree('api')
-          this.listGroupData = []
-          this.listChildrenData = []
+          this._listGroupData = []
+          this._listChildrenData = []
           const flatten = (nodes) => {
             if (!nodes) return
             nodes.forEach(node => {
               if (node.folder) {
-                this.listGroupData.push(node)
-                if (node.children && node.children.length > 0) {
-                  flatten(node.children)
-                }
+                const children = node.children || []
+                node.children = []
+                this._listGroupData.push(node)
+                flatten(children)
               } else {
-                this.listChildrenData.push(node)
+                this._listChildrenData.push(node)
               }
             })
           }
@@ -230,16 +232,16 @@ export default {
     initTreeData() {
       // 1.把所有的分组id存map,方便接口列表放入,root为没有分组的接口
       let groupItem = {root: []}
-      this.listGroupData.forEach(element => {
+      this._listGroupData.forEach(element => {
         groupItem[element.id] = []
         element.folder = true
         element.opened = contants.DEFAULT_EXPAND
         // 缓存一个name和path给后面使用
-        element.tmpName = element.name.indexOf('/') === 0 ? element.name : '/' + element.name
-        element.tmpPath = element.path.indexOf('/') === 0 ? element.path : '/' + element.path
+        element.tmpName = (element.name || '').indexOf('/') === 0 ? element.name : '/' + (element.name || '')
+        element.tmpPath = (element.path || '').indexOf('/') === 0 ? element.path : '/' + (element.path || '')
       })
       // 2.把所有的接口列表放入分组的children
-      this.listChildrenData.forEach((element, index) => {
+      this._listChildrenData.forEach((element, index) => {
         element.tmp_id = element.id
         element._type = 'api'
         if (groupItem[element.groupId]) {
@@ -251,32 +253,36 @@ export default {
         }
       })
       // 3.将分组列表变成tree,并放入接口列表,分组在前,接口在后
+      // 浅拷贝每个分组节点，切断与 _listGroupData 原始对象的引用
+      // 防止 Vue3 将 this.tree 中的节点深度代理后，下次 initData 时旧 proxy 被复用触发循环
+      const rawGroups = this._listGroupData.map(item => ({ ...item, children: [] }))
+      // 同步更新 groupItem 中的子接口指向 rawGroups（按 id 映射）
+      const rawGroupMap = {}
+      rawGroups.forEach(item => { rawGroupMap[item.id] = item })
       let arrayToTree = (arr, parentItem, groupName, groupPath, level) => {
-        //  arr 是返回的数据  parendId 父id
         let temp = []
-        let treeArr = arr
-        treeArr.forEach((item, index) => {
+        arr.forEach((item) => {
           if (item.parentId == parentItem.id) {
             item.level = level
             item.tmpName = groupName + item.tmpName
             item.tmpPath = groupPath + item.tmpPath
-            // 递归调用此函数
-            item.children = arrayToTree(treeArr, item, item.tmpName, item.tmpPath, level + 1)
+            item.children = arrayToTree(arr, item, item.tmpName, item.tmpPath, level + 1)
             if (groupItem[item.id]) {
               groupItem[item.id].forEach(element => {
                 element.level = item.level + 1
                 element.groupName = item.tmpName
                 element.groupPath = item.tmpPath
                 element.groupId = item.id
-                item.children.push(element)
+                item.children.push({ ...element })
               })
             }
-            temp.push(treeArr[index])
+            temp.push(item)
           }
         })
         return temp
       }
-      this.tree = [...arrayToTree(this.listGroupData, {id: 0}, '', '', 0), ...groupItem['root']]
+      groupItem['root'] = groupItem['root'].map(item => ({ ...item }))
+      this.tree = [...arrayToTree(rawGroups, {id: 0}, '', '', 0), ...groupItem['root']]
       this.sortTree()
     },
     // 重新构建tree的path和name,第一个参数表示是否全部折叠
@@ -623,6 +629,9 @@ export default {
       }
       if (parentItem) {
         this.createGroupObj.parentId = parentItem.id
+      } else if (!item) {
+        // 无父分组时，挂在根节点下
+        this.createGroupObj.parentId = '0'
       }
       this.createGroupObj.visible = true
     },
@@ -676,7 +685,7 @@ export default {
         name: '',
         path: '',
         parentId: '',
-        type: '1',
+        type: 'api',
         children: [],
         paths: [],
         options: []
@@ -933,7 +942,7 @@ export default {
     // 根据id打开对应item
     openItemById(openId) {
       // 证明当前请求还没有请求到数据
-      if (this.listChildrenData.length === 0) {
+      if (this._listChildrenData.length === 0) {
         this.tmpOpenId.push(openId)
       } else {
         if (!this.tmpOpenId.includes(openId)) {
@@ -953,8 +962,11 @@ export default {
     }
   },
   mounted() {
+    // 非响应式中间数据（不放 data()，避免 arrayToTree 赋值 children 时触发响应式循环）
+    this._listGroupData = []
+    this._listChildrenData = []
     JavaClass.setApiFinder(()=> {
-      return this.listChildrenData.filter(it => !it.folder).map(it => {
+      return this._listChildrenData.filter(it => !it.folder).map(it => {
         return {
           path: replaceURL(it.groupPath + '/' + it.path),
           name: replaceURL(it.groupName + '/' + it.name),

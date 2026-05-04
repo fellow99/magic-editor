@@ -87,6 +87,27 @@ function wrapAsHttpResponse(data) {
  *
  * @param {boolean} [force=false] 强制重发请求并刷新缓存。
  */
+function normalizeTreeNode(raw) {
+    if (!raw || !raw.node) return null
+    const item = { ...raw.node }
+    item.folder = item.type != null && !Object.prototype.hasOwnProperty.call(raw.node, 'script')
+    item.children = (raw.children || []).map(normalizeTreeNode).filter(Boolean)
+    return item
+}
+
+function normalizeTreeData(data) {
+    if (!data) return data
+    const result = {}
+    for (const key of Object.keys(data)) {
+        const root = data[key]
+        result[key] = {
+            ...root.node,
+            children: (root.children || []).map(normalizeTreeNode).filter(Boolean)
+        }
+    }
+    return result
+}
+
 export function loadResourceTree(force = false) {
     if (!force && _treeCache) {
         return wrapAsHttpResponse(_treeCache)
@@ -95,13 +116,13 @@ export function loadResourceTree(force = false) {
     const originalSuccess = httpResponse.success.bind(httpResponse)
     httpResponse.success = function (handle) {
         return originalSuccess(function (data, response) {
-            _treeCache = data
+            _treeCache = normalizeTreeData(data)
             if (typeof handle === 'function') {
-                handle(data, response)
+                handle(_treeCache, response)
             }
         })
     }
-    originalSuccess(function (data) { _treeCache = data })
+    originalSuccess(function (data) { _treeCache = normalizeTreeData(data) })
     return httpResponse
 }
 
