@@ -169,7 +169,7 @@ export default {
       // 1接口，2函数
       if (this.selectedItem.id) {
         getFile(this.selectedItem.id).success(data => {
-          this.setValue(data.script)
+          this.setValue(data.script || '')
         })
       }
     },

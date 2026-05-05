@@ -71,6 +71,7 @@ import bus from '@/scripts/bus.js'
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicHistory from './magic-history.vue'
 import { getFile, saveFile, listBackupsById } from '@/api/web.js'
+import request from '@/api/request'
 import contants from '@/scripts/contants.js'
 import * as utils from '@/scripts/utils.js'
 import store from '@/scripts/store.js'
@@ -428,8 +429,8 @@ export default {
             item.requestBody = data.requestBody
             item.method = data.method
           }
-          item.script = data.script
-          item.ext.tmpScript = data.script
+          item.script = data.script != null ? data.script : item.script
+          item.ext.tmpScript = data.script != null ? data.script : item.script
           item.description = data.description
           if (item.copy === true) {
             item.id = ''
@@ -443,7 +444,7 @@ export default {
           })
           this.scripts.push(item)
           this.info = item
-          this._editor.setValue(item.script)
+          this._editor.setValue(item.script || '')
           this._editor.setScrollTop(item.ext.scrollTop);
           bus.$emit('opened', item)
           this.resetRecentOpenedTab()
