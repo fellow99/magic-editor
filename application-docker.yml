@@ -2,6 +2,7 @@ server:
   port: 9999
 magic-api:
   web: /magic/web
+  prefix: /magic/web
   resource:
     type: file
     location: /data

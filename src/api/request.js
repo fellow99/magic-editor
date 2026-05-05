@@ -184,7 +184,7 @@ class HttpRequest {
             })
             .catch((error) => {
                 if (typeof httpResponse.errorHandle === 'function') {
-                    httpResponse.errorHandle(error.response.data, error.response, error)
+                    httpResponse.errorHandle(error.response && error.response.data, error.response, error)
                 } else {
                     this.processError(error)
 
