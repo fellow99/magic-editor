@@ -26,7 +26,7 @@ export default {
     // Detect dev mode: use import.meta.env.VITE_DEV_MODE
     const isDev = import.meta.env.VITE_DEV_MODE;
     defaultConfig.baseURL = isDev ? '/magic/web' : './';
-    defaultConfig.serverURL = isDev ? '/magic/web' : './';
+    defaultConfig.serverURL = isDev ? 'http://localhost:9999/' : './';
     defaultConfig.inJar = true;
     return {
       config: defaultConfig
