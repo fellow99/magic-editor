@@ -1,14 +1,14 @@
 <template>
-  <magic-dialog v-show="true" :moveable="false" :shade="true" :showClose="false" title="登录">
+  <magic-dialog v-show="true" :moveable="false" :shade="true" :showClose="false" :title="$t('login.magic.title')">
     <template #content>
-      <label>用户名：</label>
+      <label>{{ $t('login.magic.username') }}</label>
       <magic-input :onEnter="doLogin" v-model:value="username"/>
       <div style="height: 2px"/>
-      <label>密码：</label>
+      <label>{{ $t('login.magic.password') }}</label>
       <magic-input :onEnter="doLogin" v-model:value="password" type="password"/>
     </template>
     <template #buttons>
-      <button class="ma-button active" @click="doLogin">登录</button>
+      <button class="ma-button active" @click="doLogin">{{ $t('login.magic.loginButton') }}</button>
     </template>
   </magic-dialog>
 </template>
@@ -40,15 +40,15 @@ export default {
     doLogin() {
       login(this.username, this.password).success((res, response) => {
         if (res) {
-          bus.$emit('status', '登录成功')
+          bus.$emit('status', this.$t('login.magic.success'))
           contants.HEADER_MAGIC_TOKEN_VALUE = response.headers[contants.HEADER_MAGIC_TOKEN];
           store.set(contants.HEADER_MAGIC_TOKEN, contants.HEADER_MAGIC_TOKEN_VALUE);
           this.onLogin();
         } else {
-          bus.$emit('status', '登录失败')
+          bus.$emit('status', this.$t('login.magic.failure'))
           this.$magicAlert({
-            title: '登录',
-            content: '登录失败,用户名或密码不正确'
+            title: this.$t('login.magic.title'),
+            content: this.$t('login.magic.failureMessage')
           })
         }
       })
