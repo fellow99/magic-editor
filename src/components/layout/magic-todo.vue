@@ -12,7 +12,7 @@
         <div class="ma-content">
           <div v-for="(item, key) in todoList" :key="'todo_' + key" class="ma-table-row content-bg" @click="openItem(item)">
             <div>
-              <magic-text-icon v-if="item.type === 1" v-model="item.cache.method"/>
+              <magic-text-icon v-if="item.type === 1" :value="item.cache.method"/>
               <magic-text-icon v-if="item.type === 2" value="function"/>
               <label>{{ item.cache.name }}</label>
               <span>({{ item.cache.path }})</span>

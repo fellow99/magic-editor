@@ -16,7 +16,7 @@
             @dragend.stop="e => tabDraggable(item, e, 'dragend')"
             @dragover.prevent
         >
-          <magic-text-icon v-if="item._type === 'api'" v-model="item.method" style="margin-top: -4px"/>
+          <magic-text-icon v-if="item._type === 'api'" :value="item.method" style="margin-top: -4px"/>
           <magic-text-icon v-if="item._type !== 'api'" value="function" style="margin-top: -4px"/>
           {{item.displayName || item.name}}<i class="ma-icon ma-icon-lock" v-if="item.lock === '1'" />
           <span v-show="!item.id || item.script !== item.ext.tmpScript">*</span>

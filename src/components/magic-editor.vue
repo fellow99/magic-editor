@@ -1,6 +1,6 @@
 <template>
   <div ref="container" :style="themeStyle" class="ma-container" tabindex="0">
-    <magic-loading v-if="loading" v-model:title="config.title" v-model:version="config.version" />
+    <magic-loading v-if="loading" :title="config.title" :version="config.version" />
     <magic-login v-if="showLogin" :onLogin="onLogin" />
     <!-- 顶部Header -->
     <magic-header :config="config" v-model:themeStyle="themeStyle" class="not-select" />

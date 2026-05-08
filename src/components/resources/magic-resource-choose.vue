@@ -7,7 +7,7 @@
             class="ma-tree-item-header ma-tree-hover"
             @click.stop="item.opened = !item.opened"
         >
-          <magic-checkbox v-model="item.selected" :checked-half="item.checkedHalf" @change="e => doSelected(item,e)"/>
+          <magic-checkbox v-model:value="item.selected" :checked-half="item.checkedHalf" @change="e => doSelected(item,e)"/>
           <i :class="item.opened ? 'ma-icon-arrow-bottom' : 'ma-icon-arrow-right'" class="ma-icon" />
           <i class="ma-icon ma-icon-list"></i>
           <label>{{ item.name }}</label>
@@ -21,12 +21,12 @@
             :title="(item.name || '') + '(' + (item.path || '') + ')'"
             @click.stop="doSelected(item,item.selected = !item.selected)"
         >
-          <magic-checkbox v-model="item.selected" @change="e => doSelected(item,e)"/>
-          <magic-text-icon v-if="item._type === 'api'" v-model="item.method"/>
+          <magic-checkbox v-model:value="item.selected" @change="e => doSelected(item,e)"/>
+          <magic-text-icon v-if="item._type === 'api'" :value="item.method"/>
           <magic-text-icon v-if="item._type === 'function'" value="function"/>
           <i v-if="item._type === 'datasource'" class="ma-icon ma-icon-datasource" />
           <label>{{ item.name }}</label>
-          <span>({{ item.path }})</span>
+          <span v-if="item.path">({{ item.path }})</span>
         </div>
       </template>
     </magic-tree>
@@ -88,7 +88,7 @@ export default {
       ]
       loadResourceTree().success(() => {
         const apiTree = getFolderTree('api')
-        const apiGroups = (apiTree && apiTree.folder ? apiTree.folder.children || [] : [])
+        const apiGroups = (apiTree && apiTree.children ? apiTree.children.filter(it => it.folder) : [])
         apiGroups.forEach(it => {
           it.parentId = it.parentId == '0' ? 'api' : it.parentId;
           it.selected = false;
@@ -96,7 +96,7 @@ export default {
           it._type = 'group';
           this.listGroupData.push(it)
         })
-        const apiFiles = (apiTree && apiTree.children ? apiTree.children : [])
+        const apiFiles = (apiTree && apiTree.children ? apiTree.children.filter(it => !it.folder) : [])
         apiFiles.forEach(it => {
           it._type = 'api';
           it.selected = false;
@@ -107,7 +107,7 @@ export default {
       })
       loadResourceTree().success(() => {
         const fnTree = getFolderTree('function')
-        const fnGroups = (fnTree && fnTree.folder ? fnTree.folder.children || [] : [])
+        const fnGroups = (fnTree && fnTree.children ? fnTree.children.filter(it => it.folder) : [])
         fnGroups.forEach(it => {
           it.parentId = it.parentId == '0' ? 'function' : it.parentId;
           it.selected = false;
@@ -115,7 +115,7 @@ export default {
           it._type = 'group'
           this.listGroupData.push(it)
         })
-        const fnFiles = (fnTree && fnTree.children ? fnTree.children : [])
+        const fnFiles = (fnTree && fnTree.children ? fnTree.children.filter(it => !it.folder) : [])
         fnFiles.forEach(it => {
           it._type = 'function';
           it.selected = false;
@@ -130,7 +130,7 @@ export default {
         dsFiles.filter(it => it.id).forEach(it => {
           it._type = 'datasource';
           it.selected = false;
-          it.path = it.key;
+          it.path = it.key || '';
           it.groupId = 'datasource'
           this.listChildrenData.push(it)
         })
@@ -193,10 +193,12 @@ export default {
     getSelected() {
       let array = []
       let process = (node) => {
-        array.push({
-          type: node._type || 'group',
-          id: node.id
-        })
+        if (node._type !== 'root') {
+          array.push({
+            type: node._type || 'group',
+            id: node.id
+          })
+        }
         node.children && node.children.filter(it => it.selected).forEach(it => process(it))
       }
       this.tree.filter(it => it.selected).forEach(it => process(it))
@@ -211,6 +213,7 @@ export default {
         node.children && node.children.forEach(it => process(it))
       }
       this.tree.forEach(it => process(it))
+      this.changeForceUpdate()
     },
     doSelected(item,selected) {
       let process = node => {

@@ -63,7 +63,7 @@
             @dragend.stop="e => draggable(item, e, 'dragend')"
             @dragover.prevent
         >
-          <magic-text-icon v-model="item.method"/>
+          <magic-text-icon :value="item.method"/>
           <label>{{ item.name }}</label>
           <span>({{ item.path }})</span>
           <i class="ma-icon ma-icon-lock" v-if="item.lock === '1'"></i>

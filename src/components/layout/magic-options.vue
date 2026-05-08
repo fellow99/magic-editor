@@ -3,7 +3,7 @@
     <div v-show="selectedTab" ref="resizer" class="ma-resizer-y" @mousedown="doResizeY"></div>
     <div v-show="selectedTab" ref="content" :style="{ height: contentHeight }" class="ma-bottom-content-container">
       <magic-bottom-panel v-for="item in tabs" :key="'bottom_tab_content_' + item.id"
-                          :buttons="item.buttons" :class="{ visible: selectedTab === item.id }" v-model:selectedTab="selectedTab"
+                          :buttons="item.buttons" :class="{ visible: selectedTab === item.id }" @update:selectedTab="selectedTab = $event"
                           :title="item.name">
         <component v-bind:is="item.component" v-model:info="info"/>
       </magic-bottom-panel>

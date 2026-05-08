@@ -5,7 +5,7 @@
       <div style="height: 380px; overflow: auto">
         <div v-for="(it, i) in fullScripts" :key="i" @click="open(it)" class="ma-tree-item">
           <div class="ma-tree-hover" style="padding-left: 5px;">
-            <magic-text-icon v-if="it._type === 'api'" v-model="it.method"/>
+            <magic-text-icon v-if="it._type === 'api'" :value="it.method"/>
             <magic-text-icon v-if="it._type === 'function'" value="function"/>
             <label>{{ displayText(it.groupName + '/' + it.name) }}({{ displayText(it.groupPath + '/' + it.path) }})</label>
           </div>
