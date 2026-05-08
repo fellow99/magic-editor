@@ -68,7 +68,7 @@
         </div>
         <div class="ds-form">
           <label>其它配置</label>
-          <div ref="editor" class="ma-editor" style="width: 100%;height:150px"></div>
+          <textarea v-model="extraConfig" style="width: 100%;height:150px;resize:vertical;font-family:monospace" placeholder='JSON格式，如 {"maximumPoolSize":10}'></textarea>
         </div>
       </template>
       <template #buttons>
@@ -81,16 +81,12 @@
 </template>
 
 <script>
-import { markRaw } from 'vue'
 import bus from '@/scripts/bus.js'
 import { loadResourceTree, getFolderTree, getFile, testDatasource, saveFile, deleteResource } from '@/api/web.js'
 import contants from "@/scripts/contants.js"
 import MagicDialog from '@/components/common/modal/magic-dialog.vue'
 import MagicInput from '@/components/common/magic-input.vue'
-import {formatJson, isVisible, replaceURL} from '@/scripts/utils.js'
 import JavaClass from '@/scripts/editor/java-class.js'
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.api'
-import store from "@/scripts/store";
 import MagicSelect from "@/components/common/magic-select.vue";
 
 export default {
@@ -132,19 +128,12 @@ export default {
           'org.apache.commons.dbcp2.BasicDataSource',
           ...contants.DATASOURCE_TYPES
       ].map(it => { return {text: it, value: it} }),
-      editor: null,
+      extraConfig: '',
       // 是否展示loading
       showLoading: true
     }
   },
   methods: {
-    layout() {
-      this.$nextTick(() => {
-        if (this.editor && isVisible(this.$refs.editor)) {
-          // this.editor.layout()
-        }
-      })
-    },
     doSearch(keyword) {
       keyword = keyword.toLowerCase()
       this.datasources.forEach(it => {
@@ -229,7 +218,7 @@ export default {
         url: this.datasourceObj.url,
         groupId: 'datasource:0',
       }
-      let value = this.editor.getValue();
+      let value = this.extraConfig;
       let json = {};
       try{
         json = JSON.parse(value)
@@ -282,6 +271,7 @@ export default {
       }
     },
     initDataSourceObj(){
+      this.extraConfig = '';
       this.datasourceObj = {
         id: "",
         name: "",
@@ -300,6 +290,7 @@ export default {
           this.initDataSourceObj()
         }
         bus.$emit('status', `准备编辑数据源`)
+        // 提取额外属性（排除已知字段），作为JSON文本展示
         let temp = {...this.datasourceObj}
         delete temp.id
         delete temp.name
@@ -310,27 +301,11 @@ export default {
         delete temp.username
         delete temp.password
         delete temp.url
-        if(!this.editor){
-          this.editor = markRaw(monaco.editor.create(this.$refs.editor, {
-            minimap: {
-              enabled: false
-            },
-            language: 'json',
-            fixedOverflowWidgets: true,
-            folding: true,
-            wordWrap: 'on',
-            fontFamily: contants.EDITOR_FONT_FAMILY,
-            fontSize: contants.EDITOR_FONT_SIZE,
-            fontLigatures: true,
-            renderWhitespace: 'none',
-            theme: store.get('skin') || 'default',
-            value: formatJson(temp) || '{\r\n\t\r\n}'
-          }))
-        }else{
-          bus.$emit('status', `编辑数据源「${this.datasourceObj.name}」`)
-          this.editor.setValue(formatJson(temp))
+        delete temp.groupId
+        this.extraConfig = JSON.stringify(temp, null, 2);
+        if (clear) {
+          this.extraConfig = '{\n  \n}';
         }
-        this.layout();
       }
     },
     // 删除接口
@@ -389,6 +364,12 @@ ul li:hover{
 }
 .ds-form > div{
   flex: 1;
+}
+.ds-form textarea{
+  flex: 1;
+  border: 1px solid var(--border-color, #dcdfe6);
+  border-radius: 4px;
+  padding: 5px;
 }
 .ds-form label:nth-of-type(2){
   margin: 0 5px;
