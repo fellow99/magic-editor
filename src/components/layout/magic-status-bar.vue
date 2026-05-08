@@ -2,7 +2,7 @@
   <div class="ma-status-container">
     <div v-html="message"></div>
     <div class="ma-icons">
-      <span v-if="config.header.repo !== false" title="Gitee"
+      <!-- <span v-if="config.header.repo !== false" title="Gitee"
             @click="open('https://gitee.com/ssssssss-team/magic-api')">
         <i class="ma-icon ma-icon-gitee"></i>
       </span>
@@ -17,7 +17,7 @@
       <span v-if="config.header.document !== false" title="帮助文档"
             @click="open('https://ssssssss.org')">
         <i class="ma-icon ma-icon-help"></i>
-      </span>
+      </span> -->
       <span v-if="user && user.id && user.username" @click="logout" :title="user.username"><i class="ma-icon ma-icon-logout"/></span>
     </div>
   </div>

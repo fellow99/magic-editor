@@ -208,15 +208,14 @@ export default {
       }
     },
     switchTheme($theme) {
-      Object.keys(this.themeStyle).forEach((key) => delete this.themeStyle[key])
-      let theme = Themes[$theme]
-      let keys = Object.keys(theme)
-      keys.forEach((key) => {
-        this.themeStyle[`--${key}`] = theme[key]
+      const theme = Themes[$theme] || {}
+      const newStyle = {}
+      Object.keys(theme).forEach((key) => {
+        newStyle[`--${key}`] = theme[key]
       })
       store.set('skin', $theme)
       monaco.editor.setTheme($theme)
-      this.$emit('update:themeStyle', this.themeStyle)
+      this.$emit('update:themeStyle', newStyle)
     },
     refresh() {
       bus.$emit('status', `准备刷新资源`)
