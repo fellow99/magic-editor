@@ -267,10 +267,7 @@ export default {
               contants.SERVER_URL = replaceURL(host + '/' + (res.data.prefix || ''))
             }
             if(contants.config.version && contants.config.version !== contants.MAGIC_API_VERSION_TEXT){
-              this.$magicAlert({
-                title: '版本检测',
-                content: `检测到前后端版本不一致（前端：${contants.MAGIC_API_VERSION_TEXT} 后端：${contants.config.version}），请检查`
-              })
+              console.warn(`检测到前后端版本不一致（前端：${contants.MAGIC_API_VERSION_TEXT} 后端：${contants.config.version}），请检查`)
             }
           })
           .catch(e => {

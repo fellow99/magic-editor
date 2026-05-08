@@ -56,9 +56,8 @@ export default {
     open(item) {
       this.currentItem = item
       getBackupContent(item.timestamp, item.id)
-          .success((info) => {
-            info = JSON.parse(info.content)
-            this.originalModel = markRaw(monaco.editor.createModel(info.script, 'magicscript'));
+          .success((script) => {
+            this.originalModel = markRaw(monaco.editor.createModel(script || '', 'magicscript'));
             this.diffEditor.setModel({
               original: this.originalModel,
               modified: this.scriptModel,
@@ -81,8 +80,19 @@ export default {
     },
     layout() {
       this.$nextTick(() => {
-        if (isVisible(this.$refs.diffEditor)) {
-          this.$nextTick(() => this.diffEditor.layout())
+        const el = this.$refs.diffEditor
+        if (!el) return
+        const doLayout = () => {
+          const rect = el.getBoundingClientRect()
+          if (rect.width > 0 && rect.height > 0) {
+            this.diffEditor.layout({ width: rect.width, height: rect.height })
+          }
+        }
+        if (isVisible(el)) {
+          this.$nextTick(doLayout)
+        } else {
+          // Dialog may be v-show hidden; retry after transition completes
+          setTimeout(doLayout, 150)
         }
       })
     },
@@ -98,7 +108,7 @@ export default {
   overflow: auto;
   position: relative;
   width: 100%;
-  height: 485px;
+  height: 100%;
   border-top: 1px solid var(--border-color);
 }
 

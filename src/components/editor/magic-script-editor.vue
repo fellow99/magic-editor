@@ -41,7 +41,8 @@
     </div>
 
     <magic-dialog :title="'历史记录：' + (info && info.name)" v-model="showHsitoryDialog"
-                  align="right" height="550px" maxWidth="inherit" padding="none" width="1100px" :moveable="false"
+                  align="right" height="550px" maxWidth="100%" padding="none" width="1100px" :moveable="false"
+                  contentHeight="490px"
                   @onClose="showHsitoryDialog = false">
       <template #content>
         <magic-history ref="history"/>
@@ -632,6 +633,7 @@ this.info.running = false
     },
     viewHistory() {
       if (!this.selected) {
+        this.$magicAlert({ content: '请先打开一个脚本后再查看历史记录' })
         return
       }
       if (!this.info.id) {

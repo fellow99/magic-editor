@@ -1,5 +1,5 @@
 <template>
-  <magic-dialog v-if="visible" ref="dialog" v-model="visible" :title="title" @onClose="closeHandle">
+  <magic-dialog v-if="innerVisible" ref="dialog" v-model="innerVisible" :title="title" @onClose="closeHandle">
     <template #content>
       {{ content }}
     </template>
@@ -37,16 +37,23 @@ export default {
     value: {
       type: Boolean,
       default: false
+    },
+    visible: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
     return {
-      visible: this.value
+      innerVisible: this.visible || this.value
     }
   },
   watch: {
     value(val) {
-      this.visible = val
+      this.innerVisible = val
+    },
+    visible(val) {
+      this.innerVisible = val
     }
   },
   methods: {
