@@ -173,7 +173,18 @@ export default {
       return new Promise((resolve) => {
         loadResourceTree().success(() => {
           const tree = getFolderTree('datasource')
-          this.datasources = (tree && tree.children ? tree.children : []) || [];
+          // 展开分组下的子节点，得到实际的数据源列表
+          const flat = []
+          if (tree && tree.children) {
+            tree.children.forEach(child => {
+              if (child.folder && child.children) {
+                flat.push(...child.children)
+              } else if (!child.folder) {
+                flat.push(child)
+              }
+            })
+          }
+          this.datasources = flat;
           JavaClass.setExtensionAttribute('org.ssssssss.magicapi.modules.SQLModule', this.datasources.filter(it => it.key).map(it => {
             return {
               name: it.key,
@@ -216,6 +227,7 @@ export default {
         username: this.datasourceObj.username,
         password: this.datasourceObj.password,
         url: this.datasourceObj.url,
+        groupId: 'datasource:0',
       }
       let value = this.editor.getValue();
       let json = {};
@@ -233,7 +245,7 @@ export default {
     doTest(){
       bus.$emit('status', `测试数据源连接...`)
       testDatasource(this.getDataSourceObj()).success(msg => {
-        if(!msg){
+        if(!msg || msg.toLowerCase() === 'ok'){
           this.$magicAlert({
             content : '连接成功'
           })
@@ -262,8 +274,9 @@ export default {
           bus.$emit('status', `数据源「${this.datasourceObj.name}」保存成功`)
           this.showDialog = false;
           this.initDataSourceObj()
-          loadResourceTree(true)
-          this.initData();
+          loadResourceTree(true).success(() => {
+              this.initData();
+          });
 
         })
       }
@@ -330,8 +343,9 @@ export default {
           deleteResource(item.id).success(data => {
             if (data) {
               bus.$emit('status', `数据源「${item.name}(${item.key})」已删除`)
-              loadResourceTree(true)
-              this.initData();
+              loadResourceTree(true).success(() => {
+                  this.initData();
+              });
             } else {
               this.$magicAlert({content: '删除失败'})
             }

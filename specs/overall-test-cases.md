@@ -12,9 +12,9 @@
 |---|---|---:|---|
 | 001 编辑器内核 | [001-editor-core/test-cases.md](./001-editor-core/test-cases.md) | 64 | Tab 容器、面板分屏、命令注册、扩展点 |
 | 002 编辑历史 | [002-editor-history/test-cases.md](./002-editor-history/test-cases.md) | 23 | 撤销/重做、修改标记、自动恢复 |
-| 003 API 资源 | [003-resources-api/test-cases.md](./003-resources-api/test-cases.md) | 67 | API 列表/编辑/保存/参数/headers/分组 + E2E 持久化 + 脚本持久化 |
+| 003 API 资源 | [003-resources-api/test-cases.md](./003-resources-api/test-cases.md) | 68 | API 列表/编辑/保存/参数/headers/分组 + E2E 持久化 + 脚本持久化 |
 | 004 函数资源 | [004-resources-function/test-cases.md](./004-resources-function/test-cases.md) | 50 | 函数列表/编辑/保存/参数定义 + 跨模块隔离 |
-| 005 数据源资源 | [005-resources-datasource/test-cases.md](./005-resources-datasource/test-cases.md) | 40 | 数据源 CRUD/连接测试/驱动选择 |
+| 005 数据源资源 | [005-resources-datasource/test-cases.md](./005-resources-datasource/test-cases.md) | 43 | 数据源 CRUD/连接测试/驱动选择 + E2E 持久化 |
 | 006 最近打开 | [006-resources-recent/test-cases.md](./006-resources-recent/test-cases.md) | 42 | 最近文件、打开历史、清理策略 |
 | 007 顶部布局 | [007-layout-header/test-cases.md](./007-layout-header/test-cases.md) | 50 | Header 工具栏、菜单、登录态 |
 | 008 请求面板 | [008-layout-request/test-cases.md](./008-layout-request/test-cases.md) | 94 | 请求/响应区、参数表、headers、Body、运行 + E2E 运行链路 + 脚本恢复 |
@@ -27,7 +27,7 @@
 | 015 总线/状态 | [015-infra-bus-store/test-cases.md](./015-infra-bus-store/test-cases.md) | 79 | EventBus、Pinia store、订阅 |
 | 016 通用 UI | [016-common-ui/test-cases.md](./016-common-ui/test-cases.md) | 95 | Dialog/Alert/Confirm/Contextmenu/Tree 等 |
 | 101 后端 2.2.2 适配 | [101-magic-api-2.2.2/test-cases.md](./101-magic-api-2.2.2/test-cases.md) | 113 | URL 改造、ROT13、资源树合并、27 调用点矩阵 |
-| **合计** | | **1083** | |
+| **合计** | | **1087** | |
 
 ---
 
@@ -37,9 +37,9 @@
 |---|---:|---:|---:|---:|---:|
 | 001 | 38 | 16 |  6 |  4 |  64 |
 | 002 | 14 |  5 |  2 |  2 |  23 |
-| 003 | 41 | 14 |  6 |  6 |  67 |
+| 003 | 42 | 14 |  6 |  6 |  68 |
 | 004 | 30 | 12 |  4 |  4 |  50 |
-| 005 | 24 | 10 |  3 |  3 |  40 |
+| 005 | 27 | 10 |  3 |  3 |  43 |
 | 006 | 22 | 12 |  4 |  4 |  42 |
 | 007 | 30 | 12 |  4 |  4 |  50 |
 | 008 | 58 | 23 |  6 |  7 |  94 |
@@ -52,7 +52,7 @@
 | 015 | 48 | 18 |  6 |  7 |  79 |
 | 016 | 56 | 22 |  6 | 11 |  95 |
 | 101 | 84 | 14 |  4 | 11 | 113 |
-| **合计** | **672** | **244** | **78** | **91** | **1083** |
+| **合计** | **676** | **244** | **78** | **91** | **1087** |
 
 > 数字按各 test-cases.md 内 "索引摘要" 表估算；具体以源文档为准。
 
@@ -64,9 +64,9 @@
 |---|---|---|
 | 001 | TC-001-001 ~ 064 | 全 P0/P1/P2 + 边界 |
 | 002 | TC-002-001 ~ 023 | |
-| 003 | TC-003-001 ~ 067 | 含 E2E 持久化（150~154） |
+| 003 | TC-003-001 ~ 068 | 含 E2E 持久化（150~155） |
 | 004 | TC-004-001 ~ 050 | 含跨模块隔离（120~121） |
-| 005 | TC-005-001 ~ 040 | |
+| 005 | TC-005-001 ~ 043 | 含 E2E 持久化（045~047） |
 | 006 | TC-006-001 ~ 042 | |
 | 007 | TC-007-001 ~ 050 | |
 | 008 | TC-008-001 ~ 094 | 用例量最大单模块；含 E2E 运行链路（220~222） |
@@ -106,7 +106,7 @@
 ## 5. 执行建议
 
 ### 5.1 回归门禁（CI）
-- **必过**：所有 P0 用例（672 条）。
+- **必过**：所有 P0 用例（676 条）。
 - **建议过**：所有 P1（244 条）。
 - **抽样**：P2 与边界按风险评估。
 
