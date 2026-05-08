@@ -22,7 +22,7 @@
 | 项 | 期望 |
 |---|---|
 | 父组件 | `magic-script-editor.vue` 已就绪并持有 `$refs.history` |
-| 后端 | `backup/get`、`function/backup/get` 可访问，返回 `{content: JSON_STRING}` |
+| 后端 | `backup/get`、`function/backup/get` 可访问，返回纯字符串（脚本内容，非 JSON 包装） |
 | 数据 | 父组件已成功调用 `backups` 拉取到 timestamps 列表 |
 | 依赖 | monaco-editor 可创建 diffEditor；`contants.EDITOR_FONT_FAMILY/SIZE` 已配置 |
 
@@ -83,10 +83,10 @@
 #### TC-002-012 响应内容解析为 monaco model
 - **关联**：FR-002-023、FR-002-013
 - **优先级**：P0
-- **前置**：响应 `{content: '{"script":"return 1;"}'}`
+- **前置**：后端 `backup/get` 响应体为纯字符串，如 `return 1;`（非 JSON 包装）
 - **步骤**：等待请求完成
 - **预期**：
-  - `originalModel` 通过 `monaco.editor.createModel('return 1;', 'magicscript')` 创建
+  - `originalModel` 通过 `monaco.editor.createModel('return 1;', 'magicscript')` 创建（直接使用响应字符串，不做 JSON.parse）
   - diffEditor 的 model 被设置为 `{original: originalModel, modified: scriptModel}`
 
 #### TC-002-013 diff 视图左侧历史 / 右侧当前
@@ -153,7 +153,21 @@
 - **关联**：NFR-002-003
 - **优先级**：P2
 - **步骤**：审查样式
-- **预期**：面板高度 485px，列表宽度 210px
+- **预期**：面板高度 100%（撑满对话框），列表宽度 210px
+
+#### TC-002-033 layout 传递显式像素尺寸
+- **关联**：NFR-002-001、FR-002-014
+- **优先级**：P1
+- **前置**：历史面板从隐藏状态变为可见（`v-show` 切换）
+- **步骤**：面板打开后等待 150ms
+- **预期**：`diffEditor.layout({ width, height })` 调用时 `width > 0` 且 `height > 0`（不为 0×0）；diff 视图内容正常渲染
+
+#### TC-002-034 后端纯字符串直接渲染
+- **关联**：FR-002-023
+- **优先级**：P0
+- **前置**：后端 `backup/get` 返回脚本内容纯字符串（不包含 JSON 结构）
+- **步骤**：点击历史版本条目
+- **预期**：diff 左侧显示脚本原文内容；无 `JSON.parse` 报错；无 `undefined` 显示
 
 ---
 
@@ -162,8 +176,8 @@
 | 编号 | 场景 | 预期 |
 |---|---|---|
 | TC-002-100 | timestampes 为空数组 | 列表为空，不自动 open，无报错 |
-| TC-002-101 | 后端 content 字段非合法 JSON | `JSON.parse` 抛错；建议捕获并提示（[NEEDS CLARIFICATION] 当前实现未捕获） |
-| TC-002-102 | content JSON 缺少 script 字段 | originalModel 内容为 `undefined` 字面量；diff 异常 |
+| TC-002-101 | 后端返回空字符串 | originalModel 内容为空；diff 显示空白（无异常） |
+| TC-002-102 | 后端响应缺少数据 | diff 不更新；无未捕获异常 |
 | TC-002-103 | 频繁切换历史版本（10+ 次） | 旧 originalModel 未 dispose（NC-002 已记录），观察内存增长 |
 | TC-002-104 | 父组件未传入 scriptEditor | load 报错；前置由父组件保证（AS-003） |
 | TC-002-105 | 请求 5xx 或网络失败 | success 回调不触发；diff 不更新；无未捕获异常 |
@@ -178,8 +192,8 @@
 | US-001 列表渲染 | TC-002-001 ~ 004 | 4 |
 | US-002 Diff 对比 | TC-002-010 ~ 016 | 7 |
 | US-003 回滚 | TC-002-020 ~ 021 | 2 |
-| 布局响应 | TC-002-030 ~ 032 | 3 |
+| 布局响应 | TC-002-030 ~ 034 | 5 |
 | 边界与异常 | TC-002-100 ~ 106 | 7 |
-| **合计** | | **23** |
+| **合计** | | **25** |
 
-> 优先级分布：P0 ≈ 7，P1 ≈ 7，P2 ≈ 9
+> 优先级分布：P0 ≈ 8，P1 ≈ 8，P2 ≈ 9
