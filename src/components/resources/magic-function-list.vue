@@ -33,14 +33,14 @@
             :title="(item.name || '') + '(' + (item.path || '') + ')'"
             class="ma-tree-item-header ma-tree-hover"
             :dragtarget="dragging && draggableTargetItem === item"
-            @click="item.opened = !item.opened"
+            @click="toggleExpand(item)"
             @dragenter="e => draggable(item, e, 'dragenter')"
             @contextmenu.prevent="e => folderRightClickHandle(e, item)"
             @dragstart.stop="e => draggable(item, e, 'dragstart')"
             @dragend.stop="e => draggable(item, e, 'dragend')"
             @dragover.prevent
         >
-          <i :class="item.opened ? 'ma-icon-arrow-bottom' : 'ma-icon-arrow-right'" class="ma-icon"></i>
+          <i :class="item.opened ? 'ma-icon-arrow-bottom' : 'ma-icon-arrow-right'" class="ma-icon" @click.stop="toggleExpand(item)"></i>
           <i class="ma-icon ma-icon-list"></i>
           <label>{{ item.name }}</label>
           <span>({{ item.path }})</span>
@@ -272,6 +272,18 @@ export default {
       }
       groupItem['root'] = groupItem['root'].map(item => ({ ...item }))
       this.tree = [...arrayToTree(rawGroups, {id: 0}, '', '', 0), ...groupItem['root']]
+      // 仅一级节点默认展开，二级及以下默认收起
+      const collapseDeepLevels = (nodes) => {
+        nodes.forEach(node => {
+          if (node.folder && node.level > 0) {
+            node.opened = false
+          }
+          if (node.children) {
+            collapseDeepLevels(node.children)
+          }
+        })
+      }
+      collapseDeepLevels(this.tree)
       this.sortTree()
     },
     // 重新构建tree的path和name,第一个参数表示是否全部折叠
@@ -743,6 +755,11 @@ item.selectRightItem = false
           return true
         }
       }
+    },
+    // 切换节点展开/收起
+    toggleExpand(item) {
+      item.opened = !item.opened
+      this.changeForceUpdate()
     },
     // 强制触发子组件更新
     changeForceUpdate() {
