@@ -2,13 +2,14 @@ import { createApp } from 'vue'
 import Contextmenu from "./Contextmenu.vue"
 import Submenu from "./Submenu.vue"
 import {COMPONENT_NAME} from "./constant"
+import {getMountTarget} from "./util.js"
 
 let lastInstance = null
 let lastApp = null
 
 function ContextmenuProxy(options) {
     const container = document.createElement('div')
-    document.body.appendChild(container)
+    getMountTarget().appendChild(container)
 
     const app = createApp(Contextmenu, {
         menus: options.menus,

@@ -74,6 +74,7 @@ import {
   SUBMENU_Y_OFFSET
 } from "./constant.js"
 import SubmenuComponent from './Submenu.vue'
+import {getMountTarget} from "./util.js"
 
 export default {
   name: COMPONENT_NAME,
@@ -184,7 +185,7 @@ export default {
       }
       const menuItemClientRect = e.target.getBoundingClientRect()
       const container = document.createElement('div')
-      document.body.appendChild(container)
+      getMountTarget().appendChild(container)
 
       const submenuStyle = { ...this.localStyle }
       const submenuPosition = {

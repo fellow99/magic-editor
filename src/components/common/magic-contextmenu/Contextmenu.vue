@@ -4,7 +4,7 @@
 
 <script>
 import { createApp } from "vue"
-import {getElementsByClassName} from "./util.js"
+import {getElementsByClassName, getMountTarget} from "./util.js"
 import Submenu from "./Submenu.vue"
 
 export default {
@@ -39,7 +39,7 @@ export default {
     this.style.zIndex = this.zIndex
 
     const container = document.createElement('div')
-    document.body.appendChild(container)
+    getMountTarget().appendChild(container)
 
     const app = createApp(Submenu, {
       menus: this.menus,

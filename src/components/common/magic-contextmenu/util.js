@@ -1,3 +1,11 @@
+/**
+ * 获取 context menu 的挂载目标，优先挂载到 .ma-container 下以便继承主题 CSS 变量
+ * @returns {HTMLElement}
+ */
+export function getMountTarget() {
+    return document.querySelector('.ma-container') || document.body
+}
+
 export function hasClass(el, className) {
     if (!className) {
         return true;
