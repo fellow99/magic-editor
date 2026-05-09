@@ -20,9 +20,8 @@
     /* padding-left: 17px; */
     white-space: nowrap;
 }
-.ma-tree-wrapper .ma-tree-item .ma-tree-item-header[dragtarget] label{
-    border-color: red;
-}
+
+
 .ma-tree-wrapper .ma-tree-hover:hover,
 .ma-tree-wrapper .ma-tree-select {
     background: var(--toolbox-list-hover-background);
