@@ -47,7 +47,7 @@
       </template>
     </magic-dialog>
     <magic-dialog v-model="exportVisible" title="导出" align="right" :moveable="false" width="340px" height="490px"
-                  className="ma-tree-wrapper">
+                  className="ma-tree-wrapper" @onClose="exportVisible = false">
       <template #content>
         <magic-resource-choose ref="resourceExport" height="400px" max-height="400px"/>
       </template>
@@ -58,7 +58,7 @@
       </template>
     </magic-dialog>
     <magic-dialog title="远程推送" v-model="showPushDialog" align="right" :moveable="false" class="ma-remote-push-container ma-tree-wrapper"
-                  width="400px" height="540px">
+                  width="400px" height="540px" @onClose="showPushDialog = false">
       <template #content>
         <magic-resource-choose ref="resourcePush" height="400px" max-height="400px"/>
         <div>

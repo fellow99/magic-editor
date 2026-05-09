@@ -193,7 +193,7 @@ export default {
     getSelected() {
       let array = []
       let process = (node) => {
-        if (node._type !== 'root') {
+        if (node._type !== 'root' && node.id != null) {
           array.push({
             type: node._type || 'group',
             id: node.id
