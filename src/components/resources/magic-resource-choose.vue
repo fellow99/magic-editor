@@ -3,7 +3,7 @@
       <template #folder="{ item }">
         <div
             :style="{ 'padding-left': 17 * item.level + 'px' }"
-            :title="`${item.name||''}${item.parentId !== 'root' ? '(' + (item.path || '') + ')' : ''}`"
+            :title="`${item.name||''}${(item.parentId !== 'root' && item.path) ? '(' + item.path + ')' : ''}`"
             class="ma-tree-item-header ma-tree-hover"
             @click.stop="item.opened = !item.opened"
         >
@@ -11,14 +11,14 @@
           <i :class="item.opened ? 'ma-icon-arrow-bottom' : 'ma-icon-arrow-right'" class="ma-icon" />
           <i class="ma-icon ma-icon-list"></i>
           <label>{{ item.name }}</label>
-          <span v-if="item.parentId !== 'root'">({{ item.path }})</span>
+          <span v-if="item.parentId !== 'root' && item.path">({{ item.path }})</span>
         </div>
       </template>
       <template #file="{ item }">
         <div
             :style="{ 'padding-left': 17 * item.level + 'px' }"
             class="ma-tree-hover"
-            :title="(item.name || '') + '(' + (item.path || '') + ')'"
+            :title="(item.name || '') + (item.path ? '(' + item.path + ')' : '')"
             @click.stop="doSelected(item,item.selected = !item.selected)"
         >
           <magic-checkbox v-model:value="item.selected" @change="e => doSelected(item,e)"/>
@@ -126,14 +126,28 @@ export default {
       })
       loadResourceTree().success(() => {
         const dsTree = getFolderTree('datasource')
-        const dsFiles = (dsTree && dsTree.children ? dsTree.children : [])
-        dsFiles.filter(it => it.id).forEach(it => {
-          it._type = 'datasource';
-          it.selected = false;
-          it.path = it.key || '';
-          it.groupId = 'datasource'
-          this.listChildrenData.push(it)
-        })
+        const collectDatasourceLeaves = (nodes) => {
+          if (!nodes || !Array.isArray(nodes)) return
+          nodes.forEach(node => {
+            if (node.children && node.children.length > 0) {
+              // container node — recurse, don't collect the container itself
+              collectDatasourceLeaves(node.children)
+            }
+            // only collect leaf nodes with non-null ids
+            if (node.id != null && (!node.children || node.children.length === 0)) {
+              node._type = 'datasource'
+              node.selected = false
+              node.checkedHalf = false
+              node.path = node.key || node.path || ''
+              node.groupId = 'datasource'
+              delete node.children
+              this.listChildrenData.push(node)
+            }
+          })
+        }
+        if (dsTree && dsTree.children) {
+          collectDatasourceLeaves(dsTree.children)
+        }
         this.initTreeData()
         this.showLoading--
       })
@@ -147,8 +161,8 @@ export default {
         element.folder = true
         element.opened = contants.DEFAULT_EXPAND
         // 缓存一个name和path给后面使用
-        element.tmpName = element.name.indexOf('/') === 0 ? element.name : '/' + element.name
-        element.tmpPath = element.path.indexOf('/') === 0 ? element.path : '/' + element.path
+        element.tmpName = (element.name || '').indexOf('/') === 0 ? element.name : '/' + (element.name || '')
+        element.tmpPath = (element.path || '').indexOf('/') === 0 ? element.path : '/' + (element.path || '')
       })
       // 2.把所有的接口列表放入分组的children
       this.listChildrenData.forEach((element, index) => {
@@ -193,15 +207,19 @@ export default {
     getSelected() {
       let array = []
       let process = (node) => {
-        if (node._type !== 'root' && node.id != null) {
-          array.push({
-            type: node._type || 'group',
-            id: node.id
-          })
+        if (node.selected && node._type === 'root' && !node.checkedHalf && node.id != null) {
+          array.push({ type: 'root', id: node.id })
+          return
         }
-        node.children && node.children.filter(it => it.selected).forEach(it => process(it))
+        if (node.selected && node._type !== 'root' && node.id != null) {
+          let type = node.folder ? 'group' : node._type
+          if (type) {
+            array.push({ type, id: node.id })
+          }
+        }
+        node.children && node.children.forEach(it => process(it))
       }
-      this.tree.filter(it => it.selected).forEach(it => process(it))
+      this.tree.forEach(it => process(it))
       return array
     },
     doSelectAll(flag) {
@@ -214,6 +232,7 @@ export default {
       }
       this.tree.forEach(it => process(it))
       this.changeForceUpdate()
+      this.$forceUpdate()
     },
     doSelected(item,selected) {
       let process = node => {
