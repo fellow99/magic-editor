@@ -88,39 +88,13 @@ export default {
       ]
       loadResourceTree().success(() => {
         const apiTree = getFolderTree('api')
-        const apiGroups = (apiTree && apiTree.children ? apiTree.children.filter(it => it.folder) : [])
-        apiGroups.forEach(it => {
-          it.parentId = it.parentId == '0' ? 'api' : it.parentId;
-          it.selected = false;
-          it.checkedHalf = false;
-          it._type = 'group';
-          this.listGroupData.push(it)
-        })
-        const apiFiles = (apiTree && apiTree.children ? apiTree.children.filter(it => !it.folder) : [])
-        apiFiles.forEach(it => {
-          it._type = 'api';
-          it.selected = false;
-          this.listChildrenData.push(it)
-        })
+        this.collectResourceTree(apiTree && apiTree.children, 'api')
         this.initTreeData()
         this.showLoading--
       })
       loadResourceTree().success(() => {
         const fnTree = getFolderTree('function')
-        const fnGroups = (fnTree && fnTree.children ? fnTree.children.filter(it => it.folder) : [])
-        fnGroups.forEach(it => {
-          it.parentId = it.parentId == '0' ? 'function' : it.parentId;
-          it.selected = false;
-          it.checkedHalf = false;
-          it._type = 'group'
-          this.listGroupData.push(it)
-        })
-        const fnFiles = (fnTree && fnTree.children ? fnTree.children.filter(it => !it.folder) : [])
-        fnFiles.forEach(it => {
-          it._type = 'function';
-          it.selected = false;
-          this.listChildrenData.push(it)
-        })
+        this.collectResourceTree(fnTree && fnTree.children, 'function')
         this.initTreeData()
         this.showLoading--
       })
@@ -135,13 +109,14 @@ export default {
             }
             // only collect leaf nodes with non-null ids
             if (node.id != null && (!node.children || node.children.length === 0)) {
-              node._type = 'datasource'
-              node.selected = false
-              node.checkedHalf = false
-              node.path = node.key || node.path || ''
-              node.groupId = 'datasource'
-              delete node.children
-              this.listChildrenData.push(node)
+              const item = { ...node }
+              item._type = 'datasource'
+              item.selected = false
+              item.checkedHalf = false
+              item.path = item.key || item.path || ''
+              item.groupId = 'datasource'
+              delete item.children
+              this.listChildrenData.push(item)
             }
           })
         }
@@ -150,6 +125,26 @@ export default {
         }
         this.initTreeData()
         this.showLoading--
+      })
+    },
+    collectResourceTree(nodes, type) {
+      if (!nodes || !Array.isArray(nodes)) return
+      nodes.forEach(node => {
+        if (node.folder) {
+          const children = node.children || []
+          const group = { ...node, children: [] }
+          group.parentId = group.parentId == '0' ? type : group.parentId
+          group.selected = false
+          group.checkedHalf = false
+          group._type = 'group'
+          this.listGroupData.push(group)
+          this.collectResourceTree(children, type)
+        } else {
+          const item = { ...node }
+          item._type = type
+          item.selected = false
+          this.listChildrenData.push(item)
+        }
       })
     },
     // 初始化tree结构数据
