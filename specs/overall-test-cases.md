@@ -16,7 +16,7 @@
 | 004 函数资源 | [004-resources-function/test-cases.md](./004-resources-function/test-cases.md) | 50 | 函数列表/编辑/保存/参数定义 + 跨模块隔离 |
 | 005 数据源资源 | [005-resources-datasource/test-cases.md](./005-resources-datasource/test-cases.md) | 43 | 数据源 CRUD/连接测试/驱动选择 + E2E 持久化 |
 | 006 最近打开 | [006-resources-recent/test-cases.md](./006-resources-recent/test-cases.md) | 42 | 最近文件、打开历史、清理策略 |
-| 007 顶部布局 | [007-layout-header/test-cases.md](./007-layout-header/test-cases.md) | 58 | Header 工具栏、菜单、登录态 |
+| 007 顶部布局 | [007-layout-header/test-cases.md](./007-layout-header/test-cases.md) | 64 | Header 工具栏、菜单、登录态 |
 | 008 请求面板 | [008-layout-request/test-cases.md](./008-layout-request/test-cases.md) | 94 | 请求/响应区、参数表、headers、Body、运行 + E2E 运行链路 + 脚本恢复 |
 | 009 调试面板 | [009-layout-debug/test-cases.md](./009-layout-debug/test-cases.md) | 53 | 断点、单步、变量观察、WebSocket 调试 |
 | 010 选项面板 | [010-layout-options/test-cases.md](./010-layout-options/test-cases.md) | 74 | 选项/配置、缓存、安全、跨域 |
@@ -27,7 +27,7 @@
 | 015 总线/状态 | [015-infra-bus-store/test-cases.md](./015-infra-bus-store/test-cases.md) | 79 | EventBus、Pinia store、订阅 |
 | 016 通用 UI | [016-common-ui/test-cases.md](./016-common-ui/test-cases.md) | 95 | Dialog/Alert/Confirm/Contextmenu/Tree 等 |
 | 101 后端 2.2.2 适配 | [101-magic-api-2.2.2/test-cases.md](./101-magic-api-2.2.2/test-cases.md) | 113 | URL 改造、ROT13、资源树合并、27 调用点矩阵 |
-| **合计** | | **1097** | |
+| **合计** | | **1103** | |
 
 ---
 
@@ -41,7 +41,7 @@
 | 004 | 30 | 12 |  4 |  4 |  50 |
 | 005 | 27 | 10 |  3 |  3 |  43 |
 | 006 | 22 | 12 |  4 |  4 |  42 |
-| 007 | 35 | 15 |  4 |  4 |  58 |
+| 007 | 34 | 13 |  8 |  9 |  64 |
 | 008 | 58 | 23 |  6 |  7 |  94 |
 | 009 | 32 | 12 |  5 |  4 |  53 |
 | 010 | 44 | 18 |  6 |  6 |  74 |
@@ -52,7 +52,7 @@
 | 015 | 48 | 18 |  6 |  7 |  79 |
 | 016 | 56 | 22 |  6 | 11 |  95 |
 | 101 | 84 | 14 |  4 | 11 | 113 |
-| **合计** | **684** | **250** | **78** | **95** | **1097** |
+| **合计** | **683** | **248** | **82** | **100** | **1103** |
 
 > 数字按各 test-cases.md 内 "索引摘要" 表估算；具体以源文档为准。
 
@@ -68,7 +68,7 @@
 | 004 | TC-004-001 ~ 050 | 含跨模块隔离（120~121） |
 | 005 | TC-005-001 ~ 043 | 含 E2E 持久化（045~047） |
 | 006 | TC-006-001 ~ 042 | |
-| 007 | TC-007-001 ~ 104 | 含历史记录触发链新用例 TC-007-102~104 |
+| 007 | TC-007-001 ~ 104 | 含上传/导出/推送集成新用例 TC-007-025~026,033~034,045~046 |
 | 008 | TC-008-001 ~ 094 | 用例量最大单模块；含 E2E 运行链路（220~222） |
 | 009 | TC-009-001 ~ 053 | |
 | 010 | TC-010-001 ~ 074 | |
@@ -106,8 +106,8 @@
 ## 5. 执行建议
 
 ### 5.1 回归门禁（CI）
-- **必过**：所有 P0 用例（684 条）。
-- **建议过**：所有 P1（250 条）。
+- **必过**：所有 P0 用例（683 条）。
+- **建议过**：所有 P1（248 条）。
 - **抽样**：P2 与边界按风险评估。
 
 ### 5.2 分层执行
