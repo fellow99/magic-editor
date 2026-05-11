@@ -46,11 +46,15 @@ export default {
     value: {
       type: Boolean,
       default: false
+    },
+    visible: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
     return {
-      visible: this.value
+      visible: this.visible || this.value
     }
   },
   watch: {
