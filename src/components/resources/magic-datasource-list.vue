@@ -308,9 +308,9 @@ export default {
         }
       }
     },
-    // 删除接口
+    // 删除数据源
     deleteDataSource(item) {
-      bus.$emit('status', `准备删除函数「${item.name}(${item.key})」`)
+      bus.$emit('status', `准备删除数据源「${item.name}(${item.key})」`)
       this.$magicConfirm({
         title: '删除数据源',
         content: `是否要删除数据源「${item.name}(${item.key})」`,

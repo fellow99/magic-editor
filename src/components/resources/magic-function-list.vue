@@ -628,7 +628,7 @@ export default {
     },
     // 删除分组
     deleteGroupAction(item) {
-      bus.$emit('status', `准备删除接口分组「${item.name}」`)
+      bus.$emit('status', `准备删除函数分组「${item.name}」`)
       this.$magicConfirm({
         title: '删除函数分组',
         content: `是否要删除函数分组「${item.name}」`,

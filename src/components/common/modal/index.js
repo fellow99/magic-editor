@@ -26,6 +26,10 @@ function createModalProxy(Component) {
             }
         })
 
+        // 注册 $magicAlert/$magicConfirm/$magicDialog 到独立 Vue 实例，
+        // 确保对话框内部的二次弹窗（如删除失败时的 $magicAlert）也能正常渲染
+        install(app)
+
         app.mount(container)
 
         const maContainer = document.getElementsByClassName('ma-container')[0]
