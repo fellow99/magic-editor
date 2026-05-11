@@ -152,9 +152,12 @@
   npm run build    → dist-app/  （供 magic-editor.jar 内嵌）
 库模式产物：
   npm run build:lib → dist/       （NPM 包发布物）
-                       ├─ magic-editor.umd.js
-                       ├─ magic-editor.es.js
-                       └─ magic-editor.css
+                        ├─ magic-editor.umd.js
+                        ├─ magic-editor.es.js
+                        └─ magic-editor.css
+库模式测试页：
+  npm run test:lib  → vite dev server，访问 /test.html 验证 dist/ 产物
+                        通过 resolve.alias 映射 'magic-editor' → dist/magic-editor.es.js
 ```
 
 > CI 缺失（见 ARCHITECTURE R-003）。

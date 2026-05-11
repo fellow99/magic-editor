@@ -117,6 +117,7 @@ magic-editor 是 **magic-api 后端的官方 Web IDE**：
 | FR-091 | 库模式构建（NPM 组件） | `vite.config.js:118-207`、`package.json` `build:lib` 脚本 |
 | FR-092 | NPM 库 `vue` external、双格式 (umd/es) | `vite.config.js` rollupOptions |
 | FR-093 | 库样式输出固定文件名 `magic-editor.css` | `vite.config.js` `assetFileNames` |
+| FR-094 | 库模式测试页 — `test.html` + `src/test.js` + `src/Test.vue`，通过 Vite MPA + resolve.alias 验证 `import MagicEditor from 'magic-editor'` + `app.use(install)` 完整链路 | `test.html`、`src/test.js`、`src/Test.vue`、`vite.config.js` |
 
 ## 3. 非功能需求（NFR）
 
@@ -145,6 +146,8 @@ magic-editor 是 **magic-api 后端的官方 Web IDE**：
 1. `npm i magic-editor` → `import 'magic-editor/dist/magic-editor.css'`
 2. 在模板中使用 `<magic-editor :config="{ baseURL, serverURL, ... }">`
 3. 其余流程同 UC-1，但 baseURL 由宿主显式传入
+
+> **验证方式**：`test.html` 提供独立测试页（`npm run serve` 后访问 `/test.html`），通过 Vite `resolve.alias` 映射 `magic-editor` 到 `dist/magic-editor.es.js`，验证 `import { install } from 'magic-editor'` + `<MagicEditor :config>` 完整链路。
 
 ### UC-3：调试工作流
 

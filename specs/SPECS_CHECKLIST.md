@@ -38,6 +38,13 @@
 | 015 | infra-bus-store | bus / store / contants / hotkey / utils / beautifier | ✅ | ✅ |
 | 016 | common-ui | `components/common/*` 通用 UI 组件 | ✅ | ✅ |
 
+## 特殊模块文档
+
+| 编号 | 模块 | 范围 | spec.md | plan.md | tasks.md | test-cases.md |
+| :-: | --- | --- | :-: | :-: | :-: | :-: |
+| 101 | magic-api 集成 | 后端 2.2.2 适配 | ✅ | ✅ | ✅ | ✅ |
+| 102 | 库模式测试页 | `test.html` + `src/test.js` + `src/Test.vue` | ✅ | ✅ | ✅ | ✅ |
+
 ## 待澄清事项
 
 | ID | 位置 | 描述 |

@@ -15,6 +15,7 @@ magic-editor/
 ├── babel.config.js
 ├── jsconfig.json
 ├── index.html                      Vite SPA 入口模板
+├── test.html                       Vite MPA 入口模板（库模式测试页）
 ├── public/                         静态资源（favicon 等）
 ├── plugins/                        Vite 自定义插件 + monaco i18n 资源
 ├── src/                            前端主源码
@@ -45,6 +46,8 @@ public/
 src/
 ├── App.vue                         开发壳组件，注入 MAGIC_EDITOR_CONFIG
 ├── main.js                         开发模式入口（createApp）
+├── test.js                         库模式测试页入口（createApp + app.use(install)）
+├── Test.vue                        库模式测试页组件（import MagicEditor from 'magic-editor'）
 ├── index.js                        NPM 库模式入口（install() 注册 magic-editor）
 ├── api/                            HTTP 层
 ├── assets/                         图标字体与图片
@@ -214,6 +217,7 @@ magic-editor 是 **单页面无路由 SPA**：
 | 开发调试 | `src/main.js` | `npm run serve` | （开发服务器） |
 | 应用打包 | `src/main.js` + `index.html` | `npm run build` | `dist-app/` |
 | NPM 库 | `src/index.js` (`install()`) | `npm run build:lib` | `dist/` |
+| 库模式测试 | `src/test.js` + `test.html` | `npm run serve`（alias `magic-editor` → `dist/`） | （开发服务器） |
 | jar 内嵌 | 由 magic-api 后端直接托管 `dist-app/` | （后端构建） | jar 内静态资源 |
 
 ## 5. 后续模块文档划分
@@ -238,3 +242,5 @@ magic-editor 是 **单页面无路由 SPA**：
 | 014 | `014-infra-transport/` | `api/request.js` + `scripts/websocket.js` + `reconnecting-websocket.js` |
 | 015 | `015-infra-bus-store/` | `bus.js` / `store.js` / `contants.js` / `hotkey.js` / `utils.js` / `beautifier/` |
 | 016 | `016-common-ui/` | `components/common/*` 通用 UI 组件库 |
+| 101 | `101-magic-api-2.2.2/` | magic-api 后端 2.2.2 适配 |
+| 102 | `102-test-lib/` | `test.html` + `src/test.js` + `src/Test.vue` 库模式测试页 |
