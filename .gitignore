@@ -2,6 +2,7 @@
 node_modules
 /dist
 /dist-app
+public/assets/*.worker-*.js
 package-lock.json
 
 

@@ -144,7 +144,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': resolve('src'),
-        'public': resolve('public')
+        'public': resolve('public'),
+        'magic-editor': resolve('dist/magic-editor.es.js'),
       }
     },
     define: {
@@ -201,7 +202,10 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist-app',
       sourcemap: false,
       rollupOptions: {
-        input: path.resolve(__dirname, 'index.html'),
+        input: [
+        path.resolve(__dirname, 'index.html'),
+        path.resolve(__dirname, 'test.html'),
+      ],
         output: {
           entryFileNames: 'js/[name].[hash].js',
           chunkFileNames: 'js/[name].[hash].js',
